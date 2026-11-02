@@ -26,13 +26,14 @@ A spec at `./spec.md` that build sessions can take ticket by ticket: a right pan
   - The panel reads the active thread's checkout, worktree or project root, and shows which one.
   - Start-thread sends a short prompt naming the map slug and ticket file and invoking `/wayfinder`. No inlined context bundle.
   - Start-thread writes `claimed_by` with the thread id. Clearing it is a required reverse state.
+- [Compare the local wayfinder skill with the published one](./tickets/01-compare-wayfinder-skill-with-upstream.md) — local copy is byte-identical to upstream minus two text-only commits; upstream never mentions chartr or `.plan/`; no effect on the file format the panel parses.
+- [Chartr star-map license and port surface](./tickets/02-chartr-starmap-port-surface.md) — port four Svelte-free files (about 1,600 lines plus seam tests), no npm dependencies, MIT with a one-line header per file and a third-party-licenses entry; its render loop repaints every frame at rest and must become demand-driven.
 
 ## Not yet specified
 
 - **Agent access.** Whether the snapshot is exposed as an MCP tool so agents can see the frontier without reading files, and what that tool returns. Waits on the snapshot contract.
 - **Session status on stars.** chartr overlays whether the claiming session is working, idle, or waiting. Whether and how a star shows its claiming thread's runtime state. Waits on the claim design.
 - **Spec handoff.** How the finished `spec.md` is cut into an implementation map and whether the panel distinguishes planning maps from `-impl` maps. Waits on the readout and picker decisions.
-- **Research findings into the skill.** If the published wayfinder differs from the local copy in ways that change file layout, whether to update the local skill and the template. Waits on the research.
 
 ## Out of scope
 
