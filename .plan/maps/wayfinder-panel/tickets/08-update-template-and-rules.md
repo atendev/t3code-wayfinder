@@ -26,4 +26,5 @@ Files changed:
 - This repo's `.plan/README.md` says "the T3 Code Wayfinder panel" instead of "the Wayfinder panel in this fork", so the same text reads correctly in any project opened in T3 Code.
 - `~/.claude/CLAUDE.md`, Planning layout: maps live at `.plan/maps/<slug>/map.md` with tickets in `.plan/maps/<slug>/tickets/`, and a session loads only the one `map.md` and the one ticket in progress.
 
-Left out: `plan-template/map.md` and `plan-template/TICKET.template.md` still describe the old layout and are no longer copied. Deleting them is up to the user. `~/.claude/skills/session-pickup/SKILL.md` still says to load `.plan/map.md` and needs the same layout change.
+- `plan-template/map.md` and `plan-template/TICKET.template.md` are deleted, with the user's approval. `README.md` is the only template file left.
+- `~/.claude/skills/session-pickup/SKILL.md` step 2 now loads `.plan/maps/<slug>/map.md` instead of `.plan/map.md`.
