@@ -24,16 +24,16 @@ A spec at `./spec.md` that build sessions can take ticket by ticket: a right pan
   - Clicking a star shows the ticket readout; the readout has one action, start a thread on this ticket.
   - A server service parses the maps, derives status and frontier, and pushes a typed snapshot over the websocket. Clients never parse files.
   - The panel reads the active thread's checkout, worktree or project root, and shows which one.
-  - Start-thread sends a short prompt naming the map slug and ticket file and invoking `/wayfinder`. No inlined context bundle.
+  - Start-thread sends a short prompt naming the map slug and ticket file and invoking the wayfinder skill (token settled in ticket 07). No inlined context bundle.
   - Start-thread writes `claimed_by` with the thread id. Clearing it is a required reverse state.
 - [Compare the local wayfinder skill with the published one](./tickets/01-compare-wayfinder-skill-with-upstream.md) — local copy is byte-identical to upstream minus two text-only commits; upstream never mentions chartr or `.plan/`; no effect on the file format the panel parses.
 - [Chartr star-map license and port surface](./tickets/02-chartr-starmap-port-surface.md) — port four Svelte-free files (about 1,600 lines plus seam tests), no npm dependencies, MIT with a one-line header per file and a third-party-licenses entry; its render loop repaints every frame at rest and must become demand-driven.
 - [Map snapshot contract and service shape](./tickets/03-map-snapshot-contract.md) — new `WayfinderMaps` service keyed by `cwd`, maps found at the git top-level; `wayfinder.subscribe` streams metadata-only snapshots (about 15 KB per fifty-ticket map) with a per-ticket fingerprint, and `readTicket`/`readMap` fetch bodies on demand; all under `AuthFilesystemReadScope`; malformed tickets stay stars with problems attached.
 - [Watcher and refresh semantics](./tickets/04-watcher-and-refresh.md) — copy the theme watcher, one per git top-level in a `LayerMap`; 250 ms debounce; whole snapshot per change, skipped when unchanged, no deltas; runs while any subscriber is open, 30 s idle TTL; a newly broken ticket keeps its last good summary for one 500 ms re-read.
+- [Start a thread from a ticket](./tickets/07-start-thread-action.md) — `$wayfinder` prompt naming the ticket path; project default model; active checkout; `WayfinderMaps.startTicketThread` claims under a lock then calls `ThreadLaunchService.launch`; claim cleared on thread deletion or manual Release, stale shown after archive or 72 h; unknown claimants shown as another session.
 
 ## Not yet specified
 
-- **Session status on stars.** chartr overlays whether the claiming session is working, idle, or waiting. Whether and how a star shows its claiming thread's runtime state. Waits on the claim design.
 - **Spec handoff.** How the finished `spec.md` is cut into an implementation map and whether the panel distinguishes planning maps from `-impl` maps. Waits on the readout and picker decisions.
 
 ## Out of scope
