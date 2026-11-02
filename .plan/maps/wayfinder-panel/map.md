@@ -10,7 +10,7 @@ A spec at `./spec.md` that build sessions can take ticket by ticket: a right pan
 - Reference implementation: the chartr repo at `/home/aten/Documents/Github/chartr` (MIT, John Goh). Its format contract is `internal/prompt/assets/conventions.md`; its renderer is `web/src/lib/starmap/`.
 - Every session calls the Skill tool for `grilling` and `domain-modeling` unless the ticket says otherwise. Sessions on UI tickets also call `apple` and `impeccable`.
 - Standing preferences: smallest model that makes the behavior unsurprising; no continuous repaints; server is authoritative; UI stays dumb.
-- Vocabulary for this effort: a **map** is one `map.md` and its tickets under `.plan/maps/<slug>/`; a **ticket** is one question in one file; the **frontier** is the open tickets whose blockers are all resolved; the **star-map** is the canvas rendering of a map; the **readout** is the ticket detail shown on selection; a **claim** is the `claimed_by` field written by the tool, never by an agent.
+- Vocabulary for this effort: a **map** is one `map.md` and its tickets under `.plan/maps/<slug>/`; a **ticket** is one question in one file; the **frontier** is the open tickets whose blockers are all resolved; the **star-map** is the canvas rendering of a map; the **readout** is the ticket detail shown on selection; a **claim** is the `claimed_by` field written by the tool, never by an agent; a **snapshot** is the server's parsed, metadata-only view of every map in one checkout; a **problem** is a parse finding attached to a snapshot, map, or ticket, which never hides a ticket that has a number.
 
 ## Decisions so far
 
@@ -28,10 +28,10 @@ A spec at `./spec.md` that build sessions can take ticket by ticket: a right pan
   - Start-thread writes `claimed_by` with the thread id. Clearing it is a required reverse state.
 - [Compare the local wayfinder skill with the published one](./tickets/01-compare-wayfinder-skill-with-upstream.md) — local copy is byte-identical to upstream minus two text-only commits; upstream never mentions chartr or `.plan/`; no effect on the file format the panel parses.
 - [Chartr star-map license and port surface](./tickets/02-chartr-starmap-port-surface.md) — port four Svelte-free files (about 1,600 lines plus seam tests), no npm dependencies, MIT with a one-line header per file and a third-party-licenses entry; its render loop repaints every frame at rest and must become demand-driven.
+- [Map snapshot contract and service shape](./tickets/03-map-snapshot-contract.md) — new `WayfinderMaps` service keyed by `cwd`, maps found at the git top-level; `wayfinder.subscribe` streams metadata-only snapshots (about 15 KB per fifty-ticket map) with a per-ticket fingerprint, and `readTicket`/`readMap` fetch bodies on demand; all under `AuthFilesystemReadScope`; malformed tickets stay stars with problems attached.
 
 ## Not yet specified
 
-- **Agent access.** Whether the snapshot is exposed as an MCP tool so agents can see the frontier without reading files, and what that tool returns. Waits on the snapshot contract.
 - **Session status on stars.** chartr overlays whether the claiming session is working, idle, or waiting. Whether and how a star shows its claiming thread's runtime state. Waits on the claim design.
 - **Spec handoff.** How the finished `spec.md` is cut into an implementation map and whether the panel distinguishes planning maps from `-impl` maps. Waits on the readout and picker decisions.
 
