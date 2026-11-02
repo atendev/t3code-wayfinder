@@ -2,7 +2,7 @@
 
 This folder holds Wayfinder maps for the project. Commit it. It is the record of why decisions were made.
 
-The layout follows chartr's map conventions so chartr, the Wayfinder panel in this fork, and the `/wayfinder` skill all read the same files.
+The layout follows chartr's map conventions so chartr, the T3 Code Wayfinder panel, and the `/wayfinder` skill all read the same files.
 
 ```
 .plan/

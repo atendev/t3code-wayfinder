@@ -31,6 +31,7 @@ A spec at `./spec.md` that build sessions can take ticket by ticket: a right pan
 - [Map snapshot contract and service shape](./tickets/03-map-snapshot-contract.md) — new `WayfinderMaps` service keyed by `cwd`, maps found at the git top-level; `wayfinder.subscribe` streams metadata-only snapshots (about 15 KB per fifty-ticket map) with a per-ticket fingerprint, and `readTicket`/`readMap` fetch bodies on demand; all under `AuthFilesystemReadScope`; malformed tickets stay stars with problems attached.
 - [Watcher and refresh semantics](./tickets/04-watcher-and-refresh.md) — copy the theme watcher, one per git top-level in a `LayerMap`; 250 ms debounce; whole snapshot per change, skipped when unchanged, no deltas; runs while any subscriber is open, 30 s idle TTL; a newly broken ticket keeps its last good summary for one 500 ms re-read.
 - [Start a thread from a ticket](./tickets/07-start-thread-action.md) — `$wayfinder` prompt naming the ticket path; project default model; active checkout; `WayfinderMaps.startTicketThread` claims under a lock then calls `ThreadLaunchService.launch`; claim cleared on thread deletion or manual Release, stale shown after archive or 72 h; unknown claimants shown as another session.
+- [Update the plan template and planning rules to chartr conventions](./tickets/08-update-template-and-rules.md) — `plan-init.sh` now creates only `.plan/README.md` and `.plan/maps/`; the template README matches this repo's; the global `CLAUDE.md` points at `.plan/maps/<slug>/map.md`.
 
 ## Not yet specified
 
