@@ -29,6 +29,7 @@ A spec at `./spec.md` that build sessions can take ticket by ticket: a right pan
 - [Compare the local wayfinder skill with the published one](./tickets/01-compare-wayfinder-skill-with-upstream.md) — local copy is byte-identical to upstream minus two text-only commits; upstream never mentions chartr or `.plan/`; no effect on the file format the panel parses.
 - [Chartr star-map license and port surface](./tickets/02-chartr-starmap-port-surface.md) — port four Svelte-free files (about 1,600 lines plus seam tests), no npm dependencies, MIT with a one-line header per file and a third-party-licenses entry; its render loop repaints every frame at rest and must become demand-driven.
 - [Map snapshot contract and service shape](./tickets/03-map-snapshot-contract.md) — new `WayfinderMaps` service keyed by `cwd`, maps found at the git top-level; `wayfinder.subscribe` streams metadata-only snapshots (about 15 KB per fifty-ticket map) with a per-ticket fingerprint, and `readTicket`/`readMap` fetch bodies on demand; all under `AuthFilesystemReadScope`; malformed tickets stay stars with problems attached.
+- [Watcher and refresh semantics](./tickets/04-watcher-and-refresh.md) — copy the theme watcher, one per git top-level in a `LayerMap`; 250 ms debounce; whole snapshot per change, skipped when unchanged, no deltas; runs while any subscriber is open, 30 s idle TTL; a newly broken ticket keeps its last good summary for one 500 ms re-read.
 
 ## Not yet specified
 
