@@ -32,10 +32,11 @@ A spec at `./spec.md` that build sessions can take ticket by ticket: a right pan
 - [Watcher and refresh semantics](./tickets/04-watcher-and-refresh.md) — copy the theme watcher, one per git top-level in a `LayerMap`; 250 ms debounce; whole snapshot per change, skipped when unchanged, no deltas; runs while any subscriber is open, 30 s idle TTL; a newly broken ticket keeps its last good summary for one 500 ms re-read.
 - [Start a thread from a ticket](./tickets/07-start-thread-action.md) — `$wayfinder` prompt naming the ticket path; project default model; active checkout; `WayfinderMaps.startTicketThread` claims under a lock then calls `ThreadLaunchService.launch`; claim cleared on thread deletion or manual Release, stale shown after archive or 72 h; unknown claimants shown as another session.
 - [Update the plan template and planning rules to chartr conventions](./tickets/08-update-template-and-rules.md) — `plan-init.sh` now creates only `.plan/README.md` and `.plan/maps/`; the template README matches this repo's; the global `CLAUDE.md` points at `.plan/maps/<slug>/map.md`.
+- [Map picker and remembered selection](./tickets/10-map-picker-and-memory.md) — title-as-menu picker, hidden for one map; rows show title, slug, and progress with no `-impl` marking; map slug and ticket number persist per thread in a singleton `wayfinder` surface, camera stays in memory; stale memory resolves at read time; start-thread seeds the new thread.
 
 ## Not yet specified
 
-- **Spec handoff.** How the finished `spec.md` is cut into an implementation map and whether the panel distinguishes planning maps from `-impl` maps. Waits on the readout and picker decisions.
+- **Spec handoff.** How the finished `spec.md` is cut into an implementation map. Waits on the readout decision.
 
 ## Out of scope
 
