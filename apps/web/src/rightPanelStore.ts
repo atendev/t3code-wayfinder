@@ -22,6 +22,7 @@ const RIGHT_PANEL_KINDS = [
   "pull-request",
   "pull-requests",
   "side-chat",
+  "wayfinder",
 ] as const;
 export type RightPanelKind = (typeof RIGHT_PANEL_KINDS)[number];
 
@@ -76,6 +77,7 @@ export type RightPanelSurface =
       detailTab?: PullRequestDetailTab;
     }
   | { id: "pull-requests"; kind: "pull-requests" }
+  | { id: "wayfinder"; kind: "wayfinder"; mapSlug?: string; ticketNumber?: number }
   | { id: `side-chat:${string}`; kind: "side-chat"; threadId: ThreadId };
 
 const RIGHT_PANEL_STORAGE_KEY = "t3code:right-panel-state:v2";
@@ -156,6 +158,11 @@ interface RightPanelStoreState {
     surfaceId: string,
     detailTab: PullRequestDetailTab,
   ) => void;
+  /** Writes the open map and selected ticket without counting as a user panel action. */
+  setWayfinderSelection: (
+    ref: ScopedThreadRef,
+    selection: { mapSlug: string; ticketNumber: number | null },
+  ) => void;
   openTerminal: (ref: ScopedThreadRef, terminalId: string) => void;
   splitTerminal: (
     ref: ScopedThreadRef,
@@ -219,6 +226,8 @@ const singletonSurface = (
       return { id: "pull-requests", kind };
     case "device":
       return { id: "device", kind };
+    case "wayfinder":
+      return { id: "wayfinder", kind };
   }
 };
 
@@ -777,6 +786,31 @@ export const useRightPanelStore = create<RightPanelStoreState>()(
             surfaces: current.surfaces.map((surface) =>
               surface.id === surfaceId && surface.kind === "pull-request"
                 ? { ...surface, detailTab }
+                : surface,
+            ),
+          }));
+        }),
+      setWayfinderSelection: (ref, { mapSlug, ticketNumber }) =>
+        set((state) => {
+          const threadKey = scopedThreadKey(ref);
+          const existing = state.byThreadKey[threadKey]?.surfaces.find(
+            (surface) => surface.kind === "wayfinder",
+          );
+          if (
+            existing?.kind !== "wayfinder" ||
+            (existing.mapSlug === mapSlug && (existing.ticketNumber ?? null) === ticketNumber)
+          )
+            return state;
+          return automaticUpdate(state, threadKey, (current) => ({
+            ...current,
+            surfaces: current.surfaces.map((surface) =>
+              surface.kind === "wayfinder"
+                ? {
+                    id: surface.id,
+                    kind: surface.kind,
+                    mapSlug,
+                    ...(ticketNumber === null ? {} : { ticketNumber }),
+                  }
                 : surface,
             ),
           }));

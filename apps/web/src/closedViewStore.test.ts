@@ -60,6 +60,18 @@ describe("closedViewStore", () => {
       threadRef: refA,
       surface: { kind: "side-chat", id: "side-chat:x" },
     },
+    {
+      id: "bad",
+      kind: "panel-tab",
+      threadRef: refA,
+      surface: { kind: "wayfinder", id: "wayfinder", mapSlug: "panel", ticketNumber: "3" },
+    },
+    {
+      id: "bad",
+      kind: "panel-tab",
+      threadRef: refA,
+      surface: { kind: "wayfinder", id: "wayfinder:x" },
+    },
   ])("discards incomplete saved views %j while retaining valid history", async (entry) => {
     const id = useClosedViewStore.getState().remember(diff(refA));
     const { storage, name } = useClosedViewStore.persist.getOptions();
@@ -96,6 +108,11 @@ describe("closedViewStore", () => {
       threadRef: refA,
       surface: { id: "side-chat:side", kind: "side-chat", threadId: ThreadId.make("side") },
     });
+    const wayfinderId = store.remember({
+      kind: "panel-tab",
+      threadRef: refA,
+      surface: { id: "wayfinder", kind: "wayfinder", mapSlug: "panel", ticketNumber: 3 },
+    });
     const publicId = store.remember(diff(refA));
     const browserId = store.remember({
       kind: "browser",
@@ -126,6 +143,7 @@ describe("closedViewStore", () => {
     expect(useClosedViewStore.getState().entries.map((entry) => entry.id)).toEqual([
       browserId,
       publicId,
+      wayfinderId,
       sideChatId,
     ]);
     const saved = JSON.stringify(await storage!.getItem(name!));

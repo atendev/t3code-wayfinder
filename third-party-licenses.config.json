@@ -1,6 +1,13 @@
 {
   "customNotices": [
     {
+      "name": "chartr star-map renderer",
+      "bundles": ["desktop", "web"],
+      "license": "MIT",
+      "sourceUrl": "https://github.com/rengwu/chartr/tree/main/web/src/lib/starmap",
+      "generatedNotices": [{ "licenseId": "MIT", "copyrights": ["Copyright (c) 2026 John Goh"] }]
+    },
+    {
       "name": "opencode Office viewers",
       "bundles": ["web"],
       "license": "MIT",

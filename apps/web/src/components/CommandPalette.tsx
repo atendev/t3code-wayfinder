@@ -75,6 +75,7 @@ import {
   SquarePenIcon,
   TextSearchIcon,
   UserPlusIcon,
+  WaypointsIcon,
 } from "lucide-react";
 import { openThreadFind } from "./chat/threadFindStore";
 import {
@@ -1394,6 +1395,27 @@ function OpenCommandPaletteDialog(props: {
       icon: <PullRequestGlyph.link className={ITEM_ICON_CLASS} />,
       run: async () => {
         useRightPanelStore.getState().open(threadRef, "pull-requests");
+      },
+    });
+  }
+
+  if (
+    activeThread !== null &&
+    resolveCommandPaletteProject(
+      projectByKey,
+      activeThread.environmentId,
+      activeThread.projectId,
+    ) !== null
+  ) {
+    const threadRef = scopeThreadRef(activeThread.environmentId, activeThread.id);
+    actionItems.push({
+      kind: "action",
+      value: "action:open-wayfinder",
+      searchTerms: ["wayfinder", "map", "plan", "tickets", "frontier"],
+      title: "Show Wayfinder maps",
+      icon: <WaypointsIcon className={ITEM_ICON_CLASS} />,
+      run: async () => {
+        useRightPanelStore.getState().open(threadRef, "wayfinder");
       },
     });
   }

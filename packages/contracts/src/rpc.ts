@@ -123,6 +123,15 @@ import {
   WorktreeSetupSubscribeInput,
 } from "./worktreeSetup.ts";
 import {
+  WayfinderDocument,
+  WayfinderMapsReadError,
+  WayfinderReadMapInput,
+  WayfinderReadTicketInput,
+  WayfinderSubscribeEvent,
+  WayfinderSubscribeInput,
+  WayfinderTicketNotFoundError,
+} from "./wayfinder.ts";
+import {
   GitActionProgressEvent,
   VcsSwitchRefInput,
   VcsSwitchRefResult,
@@ -603,6 +612,9 @@ export const WS_METHODS = {
   subscribeVcsStatus: "subscribeVcsStatus",
   subscribeWorktreeSetup: "subscribeWorktreeSetup",
   worktreeSetupCancel: "worktreeSetup.cancel",
+  wayfinderSubscribe: "wayfinder.subscribe",
+  wayfinderReadTicket: "wayfinder.readTicket",
+  wayfinderReadMap: "wayfinder.readMap",
   subscribeTerminalMetadata: "subscribeTerminalMetadata",
   subscribePreviewEvents: "subscribePreviewEvents",
   subscribeDiscoveredLocalServers: "subscribeDiscoveredLocalServers",
@@ -1469,6 +1481,33 @@ const WsWorktreeSetupCancelRpc = Rpc.make(WS_METHODS.worktreeSetupCancel, {
   error: EnvironmentAuthorizationError,
 });
 
+const WsWayfinderSubscribeRpc = Rpc.make(WS_METHODS.wayfinderSubscribe, {
+  payload: WayfinderSubscribeInput,
+  success: WayfinderSubscribeEvent,
+  error: Schema.Union([WayfinderMapsReadError, EnvironmentAuthorizationError]),
+  stream: true,
+});
+
+const WsWayfinderReadTicketRpc = Rpc.make(WS_METHODS.wayfinderReadTicket, {
+  payload: WayfinderReadTicketInput,
+  success: WayfinderDocument,
+  error: Schema.Union([
+    WayfinderMapsReadError,
+    WayfinderTicketNotFoundError,
+    EnvironmentAuthorizationError,
+  ]),
+});
+
+const WsWayfinderReadMapRpc = Rpc.make(WS_METHODS.wayfinderReadMap, {
+  payload: WayfinderReadMapInput,
+  success: WayfinderDocument,
+  error: Schema.Union([
+    WayfinderMapsReadError,
+    WayfinderTicketNotFoundError,
+    EnvironmentAuthorizationError,
+  ]),
+});
+
 const WsGitRunStackedActionRpc = Rpc.make(WS_METHODS.gitRunStackedAction, {
   payload: GitRunStackedActionInput,
   success: GitActionProgressEvent,
@@ -2121,6 +2160,9 @@ export const WsRpcGroup = RpcGroup.make(
   WsSubscribeVcsStatusRpc,
   WsSubscribeWorktreeSetupRpc,
   WsWorktreeSetupCancelRpc,
+  WsWayfinderSubscribeRpc,
+  WsWayfinderReadTicketRpc,
+  WsWayfinderReadMapRpc,
   WsVcsPullRpc,
   WsVcsRefreshStatusRpc,
   WsGitRunStackedActionRpc,
