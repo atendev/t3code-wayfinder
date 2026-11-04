@@ -39,3 +39,5 @@ Approved by the user on 2026-11-03 after two grilling rounds.
 **Excluded.** A segmented control or tab strip (overflows at three or more maps in a narrow panel). A list-first drill-in (adds a click to the single-map case). A client-side `-impl` tag, grouped menu sections, and a map-kind contract field. A persisted camera (rewrites the whole store JSON per write, and a stored position can point at empty space after the watcher adds tickets). A separate selection store. Per-checkout memory (thread A would jump to thread B's ticket). Writing fallbacks back to the store. A "most recently changed" default, which needs a snapshot timestamp.
 
 Amended by [Star-map island in a right panel tab](./05-starmap-island-prototype.md): selecting a star already on screen does not move the camera, so a reload with a fitted map shows the remembered star without the bounded ease.
+
+Amended by [Entry points and empty state](./09-entry-points-and-empty-state.md): `isClosedViewEntry` in `apps/web/src/closedViewStore.ts` gains a `wayfinder` case, and the start-thread seed also opens the new thread's panel on the Wayfinder tab, not maximized, ungated by `proactivePanelsEnabled`.

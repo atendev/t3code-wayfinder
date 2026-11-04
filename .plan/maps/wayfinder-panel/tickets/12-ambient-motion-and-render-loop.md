@@ -88,3 +88,5 @@ There is no `paintCount()` accessor and no exported `isAnimating()`. There is no
 **Excluded.** Running ambient motion only while the panel is hovered or focused (still a repaint source and a second rule to test). A DOM overlay for the ticker (a second surface for one status line). Keeping the ticker fade as frames. A dirty flag. A `paintCount()` accessor or exported `isAnimating()`. A blur handler. An idle mode on `visible=false`. A frame cap. Live `devicePixelRatio` handling.
 
 Amended by [Star-map island in a right panel tab](./05-starmap-island-prototype.md): selecting a star already on screen does not move the camera, so a reload with a fitted map shows the remembered star without the bounded ease.
+
+Amended by [Session status on stars](./14-session-status-on-stars.md): the single orbit ring every claimed star draws replaces the fixed double claimed ring.

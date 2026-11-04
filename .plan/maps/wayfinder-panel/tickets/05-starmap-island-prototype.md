@@ -89,3 +89,9 @@ Maximized, it does not work yet. The panel gains 400 px and the map gets nothing
 - The prototype header. The map picker owns the top row; the readout owns what selection shows.
 
 **Excluded.** An eased refit on resize. Persisting `fitted`. A light-mode starfield. Separate hard-coded light and dark palettes. Labels on a DOM overlay. Edge routing around labels. Live `devicePixelRatio` handling.
+
+Amended by [Ticket readout](./06-ticket-readout.md): a click on empty canvas emits no deselect, and the readout never overlays the canvas, so insets stay zero and the build may drop `setInsets` if nothing else uses it.
+
+Amended by [Entry points and empty state](./09-entry-points-and-empty-state.md): the tab icon is `Waypoints`, not the prototype's `Sparkles`.
+
+Amended by [Session status on stars](./14-session-status-on-stars.md): session marks are sized in screen px; the selection ring sits at least 4 px outside the orbit ring; the canvas summary adds a clause per non-zero session-state count.
