@@ -45,6 +45,7 @@ import {
   Globe2,
   MessagesSquare,
   Plus,
+  Sparkles,
   TerminalSquare,
 } from "lucide-react";
 import { Volume2, VolumeOff } from "lucide";
@@ -143,6 +144,7 @@ export interface RightPanelTabsProps {
   onAddDevice: () => void;
   /** Absent where side chats are not offered. */
   onAddSideChat?: (() => void) | undefined;
+  onAddWayfinder?: (() => void) | undefined;
   browserAvailable: boolean;
   terminalAvailable: boolean;
   diffAvailable: boolean;
@@ -324,6 +326,7 @@ function RightPanelEmptyState(props: {
   onAddDevice: () => void;
   /** Absent where side chats are not offered. */
   onAddSideChat?: (() => void) | undefined;
+  onAddWayfinder?: (() => void) | undefined;
   browserAvailable: boolean;
   terminalAvailable: boolean;
   diffAvailable: boolean;
@@ -404,6 +407,19 @@ function RightPanelEmptyState(props: {
             available: props.sideChatAvailable && !props.sideChatDisabledReason,
             disabledReason: props.sideChatDisabledReason ?? SURFACE_UNAVAILABLE_HINTS.sideChat,
             onClick: props.onAddSideChat,
+          },
+        ]
+      : []),
+    ...(props.onAddWayfinder
+      ? [
+          {
+            label: "Wayfinder",
+            description: "See this project's Wayfinder map as a star-map.",
+            icon: Sparkles,
+            shortcut: "W",
+            available: true,
+            disabledReason: "",
+            onClick: props.onAddWayfinder,
           },
         ]
       : []),
@@ -590,6 +606,8 @@ function surfaceTitle(
       return `#${surface.number}`;
     case "pull-requests":
       return "Pull requests";
+    case "wayfinder":
+      return "Wayfinder";
     case "device":
       return surface.title ?? surface.target?.name ?? "Device";
     case "side-chat":
@@ -682,6 +700,8 @@ function SurfaceIcon({
       );
     case "pull-requests":
       return <PullRequestGlyph.link className="size-3 shrink-0" />;
+    case "wayfinder":
+      return <Sparkles className="size-3 shrink-0" />;
     case "side-chat":
       return <SideChatTabIcon environmentId={environmentId} threadId={surface.threadId} />;
     case "device":
@@ -1159,6 +1179,18 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
           },
         ]
       : []),
+    ...(props.onAddWayfinder
+      ? [
+          {
+            label: "Wayfinder",
+            icon: Sparkles,
+            shortcut: "W",
+            available: true,
+            disabledReason: "",
+            onClick: props.onAddWayfinder,
+          },
+        ]
+      : []),
   ] as const;
 
   const handleAddSurfaceMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
@@ -1534,6 +1566,7 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
             onAddPullRequests={props.onAddPullRequests}
             onAddDevice={props.onAddDevice}
             onAddSideChat={props.onAddSideChat}
+            onAddWayfinder={props.onAddWayfinder}
             browserAvailable={props.browserAvailable}
             terminalAvailable={props.terminalAvailable}
             diffAvailable={props.diffAvailable}

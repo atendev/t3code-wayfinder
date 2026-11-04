@@ -1,0 +1,118 @@
+{
+  "slug": "wayfinder-panel",
+  "title": "Wayfinder panel",
+  "tickets": [
+    {
+      "num": 1,
+      "title": "Compare the local wayfinder skill with the published one",
+      "type": "research",
+      "status": "resolved",
+      "blockedBy": [],
+      "frontier": false
+    },
+    {
+      "num": 2,
+      "title": "Chartr star-map license and port surface",
+      "type": "research",
+      "status": "resolved",
+      "blockedBy": [],
+      "frontier": false
+    },
+    {
+      "num": 3,
+      "title": "Map snapshot contract and service shape",
+      "type": "grilling",
+      "status": "resolved",
+      "blockedBy": [],
+      "frontier": false
+    },
+    {
+      "num": 4,
+      "title": "Watcher and refresh semantics",
+      "type": "grilling",
+      "status": "resolved",
+      "blockedBy": [3],
+      "frontier": false
+    },
+    {
+      "num": 5,
+      "title": "Star-map island in a right panel tab",
+      "type": "prototype",
+      "status": "open",
+      "blockedBy": [2, 3, 12],
+      "frontier": true
+    },
+    {
+      "num": 6,
+      "title": "Ticket readout",
+      "type": "grilling",
+      "status": "open",
+      "blockedBy": [5],
+      "frontier": false
+    },
+    {
+      "num": 7,
+      "title": "Start a thread from a ticket",
+      "type": "grilling",
+      "status": "resolved",
+      "blockedBy": [3],
+      "frontier": false
+    },
+    {
+      "num": 8,
+      "title": "Update the plan template and planning rules to chartr conventions",
+      "type": "task",
+      "status": "resolved",
+      "blockedBy": [1],
+      "frontier": false
+    },
+    {
+      "num": 9,
+      "title": "Entry points and empty state",
+      "type": "grilling",
+      "status": "open",
+      "blockedBy": [5],
+      "frontier": false
+    },
+    {
+      "num": 10,
+      "title": "Map picker and remembered selection",
+      "type": "grilling",
+      "status": "resolved",
+      "blockedBy": [3],
+      "frontier": false
+    },
+    {
+      "num": 11,
+      "title": "Pull the upstream wayfinder text changes into the local skill",
+      "type": "task",
+      "status": "open",
+      "blockedBy": [1],
+      "frontier": true
+    },
+    {
+      "num": 12,
+      "title": "Ambient motion and a demand-driven render loop",
+      "type": "grilling",
+      "status": "resolved",
+      "blockedBy": [2],
+      "frontier": false
+    },
+    {
+      "num": 13,
+      "title": "Agent access to maps through MCP",
+      "type": "grilling",
+      "status": "open",
+      "blockedBy": [3],
+      "frontier": true
+    },
+    {
+      "num": 14,
+      "title": "Session status on stars",
+      "type": "grilling",
+      "status": "open",
+      "blockedBy": [5, 7],
+      "frontier": false
+    }
+  ]
+}
