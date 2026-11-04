@@ -68,6 +68,17 @@ describe("RPC authorization scopes", () => {
     }
   });
 
+  it("keeps Wayfinder map reads at filesystem read scope, like project file reads", () => {
+    for (const method of [
+      WS_METHODS.projectsReadFile,
+      WS_METHODS.wayfinderSubscribe,
+      WS_METHODS.wayfinderReadTicket,
+      WS_METHODS.wayfinderReadMap,
+    ]) {
+      expect(requiredScopeForRpcMethod(method)).toBe(AuthFilesystemReadScope);
+    }
+  });
+
   it("rejects unknown RPC method names", () => {
     for (const method of ["server.notRegistered", "toString", "constructor"]) {
       expect(() => requiredScopeForRpcMethod(method)).toThrow(
