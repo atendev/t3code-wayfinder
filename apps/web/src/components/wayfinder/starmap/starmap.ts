@@ -668,6 +668,9 @@ export class StarMap {
   #draw(): void {
     const g = this.#ctx;
     if (!g) return;
+    // prototype-only paint counter for the manual flat-trace
+    const ds = document.documentElement.dataset;
+    ds.wfPaints = String(Number(ds.wfPaints ?? 0) + 1);
     g.setTransform(this.#dpr, 0, 0, this.#dpr, 0, 0);
     g.fillStyle = this.#bg;
     g.fillRect(0, 0, this.#w, this.#h);
