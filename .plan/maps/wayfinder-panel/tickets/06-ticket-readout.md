@@ -100,3 +100,5 @@ Release is the reverse of Start, not a second action, so the readout still has o
 **Excluded.** An overlay or bottom sheet over the canvas, which would need insets and a canvas reflow on each selection. A readout that appears only on selection, which resizes the canvas on every click. A user-resizable splitter. Switching layouts on the `maximized` flag. Inlining blockers' answers. Intercepting markdown links to other tickets so they select stars. Persisting section expansion. Deselecting on an empty-canvas click. Escape as a deselect key. Refetching `readMap` on every push in place of a map fingerprint.
 
 Amended by [Session status on stars](./14-session-status-on-stars.md): the claim table's states come from `claimSessionState`.
+
+Amended by [Spec handoff](./15-spec-handoff.md): the ticket readout renders `readTicket` sections in file order with no reordering; the map readout adds a muted 12 px checkout line under the progress line, "Worktree · {root}" or "Project root · {root}"; `CLIENT_GUARDED_RPC_SCOPES` lists `orchestration:operate` for `wayfinder.startTicketThread` and the `clientRpcRequiredScopes` special case adds `filesystem:write`.

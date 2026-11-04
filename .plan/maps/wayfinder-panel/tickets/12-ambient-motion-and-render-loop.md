@@ -92,3 +92,5 @@ Amended by [Star-map island in a right panel tab](./05-starmap-island-prototype.
 Amended by [Session status on stars](./14-session-status-on-stars.md): the single orbit ring every claimed star draws replaces the fixed double claimed ring.
 
 Amended by [Star-map island in a right panel tab](./05-starmap-island-prototype.md): pointer events with `setPointerCapture` and `pointercancel` replace the mouse listeners and the `buttons === 0` lost-mouse-up rule, so the drag row tests `pointercancel` instead; the palette setter replaces `setBackground` in the `restoreCamera` row; `setInsets` and its two rows may be dropped, since the readout never overlays the canvas (ticket 06); a remount with `fitted` remembered calls `fit()` instead of `restoreCamera`.
+
+Amended by [Spec handoff](./15-spec-handoff.md): `setInsets` is dropped from the seam and the stop table; `setPalette({ background, frontier, claimed, resolved, blocked, edge, edgeMuted, label, labelStroke, scheme, highContrast })` replaces `setBackground` in `wake()` and the stop table.

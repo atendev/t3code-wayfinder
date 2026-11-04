@@ -45,3 +45,5 @@ Approved by the user on 2026-11-02 after a grilling round and an independent rev
 **Excluded.** Bodies in the snapshot (chartr's choice; rejected for push size). Validating `cwd` the way `projects.readFile` does, which never checks it. Dropping malformed tickets. A per-ticket claimant kind: the snapshot cannot tell a T3 thread claim from a foreign one, so ticket 07 resolves the id against thread data and shows an unknown claimant otherwise.
 
 Amended by [Ticket readout](./06-ticket-readout.md): `WayfinderMapSummary` carries a `fingerprint` of the `map.md` bytes so a cached `readMap` knows when it is stale.
+
+Amended by [Spec handoff](./15-spec-handoff.md): `readTicket` and `readMap` return `{ fingerprint, title, sections: { heading, markdown }[] }` in file order in place of named fields; `WayfinderProblem.path` is root-relative with forward slashes; `frontier` is ordered by ticket number ascending; start and release refusals are `WayfinderTicketNotStartableError { reason, blockers? }` and `WayfinderClaimLiveError { state, threadId }`.

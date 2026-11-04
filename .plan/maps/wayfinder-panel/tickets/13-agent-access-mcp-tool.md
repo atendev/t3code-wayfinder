@@ -53,3 +53,5 @@ Decided on 2026-11-04 by a subagent standing in for the user, at the user's requ
 **Skill text.** No change. The local skill defers claim mechanics to `.plan/README.md` (Pull the upstream wayfinder text changes into the local skill), and the rule that agents never write `claimed_by` still holds because the tool writes it. Agents find the tools through their descriptions.
 
 **Excluded.** Snapshot, ticket, and map read tools, and a trimmed frontier-first view. A tool that claims a ticket for the calling thread; threads users start themselves stay unclaimed. `environmentId` and linked-environment forwarding. Callers outside a thread. A `cwd` parameter. Any change to the skill or `.plan/README.md`.
+
+Amended by [Spec handoff](./15-spec-handoff.md): `t3_wayfinder_start` adds `link` to the service's `{ threadId, ticketPath }`; refusal `message` text comes from the spec's refusal copy table for `WayfinderTicketNotStartableError` and `WayfinderClaimLiveError`.
