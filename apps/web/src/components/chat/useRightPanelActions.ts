@@ -147,6 +147,11 @@ export function useRightPanelActions(input: RightPanelActionsInput) {
     useRightPanelStore.getState().open(activeThreadRef, "files");
   };
   const addFilesSurfaceStable = useStableCallback(addFilesSurface);
+  const addWayfinderSurface = () => {
+    if (!activeThreadRef || !activeProject) return;
+    useRightPanelStore.getState().open(activeThreadRef, "wayfinder");
+  };
+  const addWayfinderSurfaceStable = useStableCallback(addWayfinderSurface);
   const addPullRequestsSurface = () => {
     if (!activeThreadRef || !pullRequestsSurfaceAvailable) return;
     useRightPanelStore.getState().open(activeThreadRef, "pull-requests");
@@ -348,6 +353,7 @@ export function useRightPanelActions(input: RightPanelActionsInput) {
     addFilesSurfaceStable,
     addPullRequestSurfaceStable,
     addPullRequestsSurfaceStable,
+    addWayfinderSurfaceStable,
     closePreviewPanelStable,
     copyRightPanelFilePathStable,
     createBrowserSurface,
