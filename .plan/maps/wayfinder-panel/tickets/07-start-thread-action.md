@@ -52,3 +52,5 @@ $wayfinder Work ticket {NN} of the {slug} map: .plan/maps/{slug}/tickets/{file}.
 **Claimant.** The client resolves `claimedBy` with `useThreadShell(scopeThreadRef(environmentId, claimedBy))` (`apps/web/src/state/entities.ts`), as `MarkdownThreadLink.tsx` does. Found: a `ThreadContextChip` with the title, plus a stale note when `archivedAt` is set. Not found: an `UnresolvedChip` labelled "Claimed by another session", the raw id and claim age in its tooltip. No claimant kind is added to the snapshot.
 
 **Excluded.** A model picker or carrying the active thread's model. A new worktree per ticket. A client-composed launch followed by a client claim write. Launch-then-claim ordering. Clearing on archive, on turn end, or by age. A one-step takeover. Disabling Start for providers without the skill.
+
+Amended by [Agent access to maps through MCP](./13-agent-access-mcp-tool.md): `startTicketThread` takes optional caller modes for the MCP path, and `releaseClaim` takes `force` and refuses a live claimant without it.
