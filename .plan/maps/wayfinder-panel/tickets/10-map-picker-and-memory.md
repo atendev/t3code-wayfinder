@@ -25,8 +25,8 @@ Approved by the user on 2026-11-03 after two grilling rounds.
 
 **Memory horizons.**
 
-- Survives a reload: the open map slug and the selected ticket number. Both are written only when the user clicks. Ticket numbers are never reused, so the number is a stable key without the fingerprint.
-- Survives thread switches but not a reload: the camera. It lives in memory, keyed by thread key and map slug, and needs no cleanup because it holds a few numbers per thread and map visited in one page load. After a reload the view fits the whole map, or centers on the selected star when one is remembered.
+- Survives a reload: the open map slug and the selected ticket number. Both are written only when the user clicks; the renderer's `select()` never emits `onSelect`, so a remount or reload restoring the selection cannot write the store (ticket 12). Ticket numbers are never reused, so the number is a stable key without the fingerprint.
+- Survives thread switches but not a reload: the camera. It lives in memory, keyed by thread key and map slug, and needs no cleanup because it holds a few numbers per thread and map visited in one page load. After a reload the view fits the whole map, or eases once to the selected star when one is remembered (amended by ticket 12, accepted by the user on 2026-11-04).
 
 **Store key.** A singleton surface `{ id: "wayfinder", kind: "wayfinder", mapSlug?, ticketNumber? }` in the thread's existing `surfaces`, under `byThreadKey[scopedThreadKey(ref)]`. Memory is per thread, like every other surface. A new action `setWayfinderSelection(ref, …)` writes it through `automaticUpdate`, as `setPullRequestDetailTab` does, so a click on a star does not bump the user-action revision that gates proactive opens. Picking a different map clears `ticketNumber`, because numbers repeat across maps. Closing the tab drops the surface and forgets the selection, and the closed-view store restores it on "reopen closed tab". A fresh open from the palette starts at the default map. `migratePersistedRightPanelState` passes unknown surface kinds through, so no `RIGHT_PANEL_STORAGE_VERSION` bump is needed.
 

@@ -14,3 +14,7 @@ chartr overlays whether a claiming session is working, idle, or waiting on the u
 ## Done when
 
 The answer lists the states shown, the thread fields each one reads, how each is drawn on a star, and confirms no snapshot change or names the one required.
+
+## Constraints from ticket 12
+
+Nothing on the star-map moves on its own (ticket 12). Orbit, crawl and blink are gone, so the states must be told apart by static shape and mark, with at most two hues. chartr's `nonColorSignature` joins `motion|moon|marks`; it becomes shape plus mark, and `implementing` and `blocked` collide until this ticket picks shapes. A session-state change repaints once and never flares.

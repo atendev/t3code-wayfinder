@@ -14,3 +14,5 @@ Does chartr's renderer, ported into a React-hosted canvas island and fed the sna
 ## Done when
 
 A prototype branch is linked from `assets/`, with a short capture of the tab at panel width and maximized, and the answer lists the changes the port required and anything that must be redesigned rather than ported.
+
+Note from ticket 12 (the question is unchanged): record a manual flat-trace on the real panel: no frames at idle, after a resize, and after maximize (ticket 12 keeps this out of the permanent tests).
