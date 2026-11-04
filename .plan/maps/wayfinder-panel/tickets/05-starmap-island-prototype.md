@@ -7,6 +7,7 @@ assets:
     prototype-starmap/panel-width.png,
     prototype-starmap/panel-width-resized-selected.png,
     prototype-starmap/maximized.png,
+    prototype-starmap/BRANCH.md,
   ]
 ---
 
@@ -24,7 +25,7 @@ Note from ticket 12 (the question is unchanged): record a manual flat-trace on t
 
 ## Answer
 
-**Prototype.** Branch [`prototype/wayfinder-starmap`](https://github.com/atendev/t3code-wayfinder/tree/prototype/wayfinder-starmap) at `ed0384dfc`, never merged. The tab is under the right panel's "+" menu as Wayfinder (W). It draws a committed fixture of this map, generated from the ticket files by `apps/web/scripts/generate-wayfinder-fixture.ts` as a stand-in for the ticket 03 snapshot. Captures are in `assets/prototype-starmap/`: `panel-width.png` (539 CSS px, dpr 1.75, dark), `panel-width-resized-selected.png` (583 px, 05 selected), and `maximized.png` (944 px).
+**Prototype.** Branch [`prototype/wayfinder-starmap`](https://github.com/atendev/t3code-wayfinder/tree/prototype/wayfinder-starmap) at `ed0384dfc`, never merged; `assets/prototype-starmap/BRANCH.md` records the link and head. The tab is under the right panel's "+" menu as Wayfinder (W). It draws a committed fixture of this map, generated from the ticket files by `apps/web/scripts/generate-wayfinder-fixture.ts` as a stand-in for the ticket 03 snapshot. Captures are in `assets/prototype-starmap/`: `panel-width.png` (539 CSS px, dpr 1.75, dark), `panel-width-resized-selected.png` (583 px, 05 selected), and `maximized.png` (944 px).
 
 **Flat-trace** (2026-11-04, on the live panel; a prototype-only counter in `#draw` bumps a DOM attribute):
 
@@ -72,11 +73,12 @@ Maximized, it does not work yet. The panel gains 400 px and the map gets nothing
 
 **Must change in the build**
 
-- **Camera fit mode.** The renderer keeps one flag, `fitted`. Mount, `fit()`, and a structure-changing `setModel` set it. Wheel, drag, pinch, and a `restoreCamera` of a remembered camera clear it. While `fitted`, resize, maximize, and `setInsets` refit and snap, with no ease and one paint. Otherwise the current anchor-the-centre behaviour stays. The 0.15–1.4 scale clamp stays, so a small map does not balloon when maximized.
+- **Camera fit mode.** The renderer keeps one flag, `fitted`. Mount, `fit()`, and a structure-changing `setModel` set it. Wheel, drag, pinch, and a `restoreCamera` of a remembered camera clear it. While `fitted`, resize and maximize refit and snap, with no ease and one paint. Otherwise the current anchor-the-centre behaviour stays. The 0.15–1.4 scale clamp stays, so a small map does not balloon when maximized.
+- **`fitted` in the camera memory.** Ticket 10's in-memory camera stores `fitted` with the position. On remount with `fitted` set, the host calls `fit()` instead of `restoreCamera`, so a map left fitted at one panel width refits at the new one. This is not persisting `fitted`: the memory is gone on reload, and a reload starts fitted anyway.
 - **Way back to fit.** When not fitted, the tab's top row shows a Fit button from `components/ui`, at least 28 pt tall, that calls `fit()`. It is hidden while fitted. This is the reverse state for panning away.
 - **Selection does not pan a visible star.** `#seat` moves the camera only when the selected star or its label falls outside the free rect inset by 16 px. Scale never changes on select. Clicking an on-screen star moves nothing and costs one paint. This amends tickets 10 and 12: after a reload the fitted map already shows the remembered star, so the bounded ease from fit to the seated star no longer happens in that case.
-- **Theme-derived palette.** Delete the hex tables in `theme.ts`. The host reads tokens once per theme change (app themes redefine the same tokens, so `useTheme` alone is not enough) and passes them through one setter that replaces `setBackground`, costing one paint. Frontier `--info-foreground`, claimed `--warning-foreground`, resolved `--success-foreground`, blocked `--muted-foreground`, out of scope `--muted-foreground` as a hollow ring (shape, not colour alone), satisfied and unsatisfied edges `--foreground` and `--muted-foreground` at reduced alpha. Glows use the core's token at a per-scheme alpha.
-- **Contrast**, measured against `--card` in light and dark: labels at least 4.5:1, star cores and arrowheads at least 3:1, every label `--foreground` (7:1) under `prefers-contrast: more`. Before/after captures with measured ratios go in the PR; no test.
+- **Theme-derived palette.** Delete the hex tables in `theme.ts`. The host reads tokens once per theme change (app themes redefine the same tokens, so `useTheme` alone is not enough) and passes them through one palette setter that replaces `setBackground`, costing one paint. Frontier `--info-foreground`, claimed `--warning-foreground`, resolved `--success-foreground`, blocked `--muted-foreground`, out of scope `--muted-foreground` as a hollow ring (shape, not colour alone), satisfied and unsatisfied edges `--foreground` and `--muted-foreground` at reduced alpha. The tokens resolve to `oklch()` and `color-mix()` strings, not hex, so glows and reduced-alpha strokes set `globalAlpha` (per-scheme for glows) rather than appending a hex alpha; the prototype's `hexA` goes.
+- **Contrast**, measured against `--card` in light and dark and under every app theme: labels at least 4.5:1, star cores and arrowheads at least 3:1, every label `--foreground` (7:1) under `prefers-contrast: more`. App themes (`html[data-theme-id]`, `apps/web/src/index.css:1325-1375`) override `--card`, `--foreground`, `--muted-foreground`, and `--warning-foreground` but not `--info-foreground` or `--success-foreground`, so the frontier and resolved cores can miss on a themed card. Where an app theme misses 4.5:1 or 3:1, the build adds that theme's `--info-foreground` and `--success-foreground` values. Before/after captures with measured ratios per theme go in the PR; no test.
 - **Label legibility.** `system-ui` at 11 to 13 CSS px, never below 11 (the clamp is 8 to 13 today). A 3 px text stroke in the `--card` colour, drawn before the fill, replaces the black `shadowBlur`, so labels read over edges in both schemes.
 - **Label fitting.** Truncate by measured width, not by scaled character count. Each label tries, in order, full title, title clipped at a word boundary to 180 CSS px, then number only, and keeps the first that collides with nothing. The number is never dropped. A label box stays inside the canvas, shifted sideways if needed.
 - **Pointer events.** `pointerdown`/`pointermove`/`pointerup` on the canvas with `setPointerCapture` and `pointercancel` replace the mouse and window listeners and ticket 12's `buttons === 0` rule. Two active pointers pinch-zoom about their midpoint. WebKit gesture events stay for the Safari trackpad.
@@ -88,10 +90,10 @@ Maximized, it does not work yet. The panel gains 400 px and the map gets nothing
 - Keyboard and screen-reader access. The canvas gets `role="img"` with a one-line summary such as "Wayfinder panel, 14 tickets, 3 on the frontier". Arrow-key star navigation is not built into the island. Ticket readout and Entry points and empty state must give a non-canvas path to frontier tickets.
 - The prototype header. The map picker owns the top row; the readout owns what selection shows.
 
-**Excluded.** An eased refit on resize. Persisting `fitted`. A light-mode starfield. Separate hard-coded light and dark palettes. Labels on a DOM overlay. Edge routing around labels. Live `devicePixelRatio` handling.
+**Excluded.** An eased refit on resize. Persisting `fitted` to the store. A light-mode starfield. Separate hard-coded light and dark palettes. Labels on a DOM overlay. Edge routing around labels. Live `devicePixelRatio` handling.
 
 Amended by [Ticket readout](./06-ticket-readout.md): a click on empty canvas emits no deselect, and the readout never overlays the canvas, so insets stay zero and the build may drop `setInsets` if nothing else uses it.
 
 Amended by [Entry points and empty state](./09-entry-points-and-empty-state.md): the tab icon is `Waypoints`, not the prototype's `Sparkles`.
 
-Amended by [Session status on stars](./14-session-status-on-stars.md): session marks are sized in screen px; the selection ring sits at least 4 px outside the orbit ring; the canvas summary adds a clause per non-zero session-state count.
+Amended by [Session status on stars](./14-session-status-on-stars.md): session marks are sized in screen px; the selection ring's inner edge sits at least 2 px outside every session mark (radius core + 15 px); the canvas summary adds a clause per non-zero session-state count.
