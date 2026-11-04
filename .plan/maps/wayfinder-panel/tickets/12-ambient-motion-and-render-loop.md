@@ -21,17 +21,17 @@ Nothing moves on its own. The renderer paints on demand and only runs frames whi
 
 **Effects**
 
-| Effect | Decision | Trigger |
-| --- | --- | --- |
-| Star drift | Drop. Delete `_x/_y`, `#clock`, and the `t` parameter of `#drawStar`. `#drawEdge` and `selectAtScreen` read `x/y`. | None |
-| Frontier pulse | Replace with a fixed brighter glow. | None |
-| Claimed ring | Replace with a fixed ring. It draws only when the star has no session state, so it is a fallback once ticket 07 claimants resolve. | None |
-| Edge particles | Drop. Satisfied and unsatisfied edges already differ by colour and solid vs dashed `[4,6]`, and every edge has an arrowhead. | None |
-| Session moon | Replace with a static glyph. | One repaint on a session-state change |
-| Starfield | Keep. Its twinkle is static. | None |
-| Flare (1.1 s; click 0.6, about 0.66 s) | Keep. | A visual-state change (status or frontier flag, from `visualState`) or a click |
-| Ticker | Replace. Hold the line 4.2 s on a timer, then one timeout paints the clear. No fade, no frames. | A visual-state change |
-| Camera ease (0.12 s time constant) | Keep. | The goal moves (`select`, `fit`, wheel, drag, `setInsets`) |
+| Effect                                 | Decision                                                                                                                           | Trigger                                                                        |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Star drift                             | Drop. Delete `_x/_y`, `#clock`, and the `t` parameter of `#drawStar`. `#drawEdge` and `selectAtScreen` read `x/y`.                 | None                                                                           |
+| Frontier pulse                         | Replace with a fixed brighter glow.                                                                                                | None                                                                           |
+| Claimed ring                           | Replace with a fixed ring. It draws only when the star has no session state, so it is a fallback once ticket 07 claimants resolve. | None                                                                           |
+| Edge particles                         | Drop. Satisfied and unsatisfied edges already differ by colour and solid vs dashed `[4,6]`, and every edge has an arrowhead.       | None                                                                           |
+| Session moon                           | Replace with a static glyph.                                                                                                       | One repaint on a session-state change                                          |
+| Starfield                              | Keep. Its twinkle is static.                                                                                                       | None                                                                           |
+| Flare (1.1 s; click 0.6, about 0.66 s) | Keep.                                                                                                                              | A visual-state change (status or frontier flag, from `visualState`) or a click |
+| Ticker                                 | Replace. Hold the line 4.2 s on a timer, then one timeout paints the clear. No fade, no frames.                                    | A visual-state change                                                          |
+| Camera ease (0.12 s time constant)     | Keep.                                                                                                                              | The goal moves (`select`, `fit`, wheel, drag, `setInsets`)                     |
 
 The 0.5 s ticker fade was first kept, then dropped on 2026-11-04 with the user's sign-off, because a fade would make the full-canvas repaint run for 4.7 s at 60 to 120 Hz.
 
@@ -86,3 +86,11 @@ There is no `paintCount()` accessor and no exported `isAnimating()`. There is no
 **For ticket 14.** Nothing moves on its own, so every state must be told apart by static shape. chartr says liveness is the moon's motion (`session.ts:7`), and it separates implementing from blocked only by motion (orbit vs crawl) and blink. Ticket 14 must pick static shapes that distinguish running, waiting on the user, idle, archived or stale, and unknown claimant, for example trailing dots vs a hollow or ringed moon.
 
 **Excluded.** Running ambient motion only while the panel is hovered or focused (still a repaint source and a second rule to test). A DOM overlay for the ticker (a second surface for one status line). Keeping the ticker fade as frames. A dirty flag. A `paintCount()` accessor or exported `isAnimating()`. A blur handler. An idle mode on `visible=false`. A frame cap. Live `devicePixelRatio` handling.
+
+Amended by [Star-map island in a right panel tab](./05-starmap-island-prototype.md): selecting a star already on screen does not move the camera, so a reload with a fitted map shows the remembered star without the bounded ease.
+
+Amended by [Session status on stars](./14-session-status-on-stars.md): the single orbit ring every claimed star draws replaces the fixed double claimed ring.
+
+Amended by [Star-map island in a right panel tab](./05-starmap-island-prototype.md): pointer events with `setPointerCapture` and `pointercancel` replace the mouse listeners and the `buttons === 0` lost-mouse-up rule, so the drag row tests `pointercancel` instead; the palette setter replaces `setBackground` in the `restoreCamera` row; `setInsets` and its two rows may be dropped, since the readout never overlays the canvas (ticket 06); a remount with `fitted` remembered calls `fit()` instead of `restoreCamera`.
+
+Amended by [Spec handoff](./15-spec-handoff.md): `setInsets` is dropped from the seam and the stop table; `setPalette({ background, frontier, claimed, resolved, blocked, edge, edgeMuted, label, labelStroke, scheme, highContrast })` replaces `setBackground` in `wake()` and the stop table.

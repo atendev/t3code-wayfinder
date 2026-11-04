@@ -52,3 +52,13 @@ $wayfinder Work ticket {NN} of the {slug} map: .plan/maps/{slug}/tickets/{file}.
 **Claimant.** The client resolves `claimedBy` with `useThreadShell(scopeThreadRef(environmentId, claimedBy))` (`apps/web/src/state/entities.ts`), as `MarkdownThreadLink.tsx` does. Found: a `ThreadContextChip` with the title, plus a stale note when `archivedAt` is set. Not found: an `UnresolvedChip` labelled "Claimed by another session", the raw id and claim age in its tooltip. No claimant kind is added to the snapshot.
 
 **Excluded.** A model picker or carrying the active thread's model. A new worktree per ticket. A client-composed launch followed by a client claim write. Launch-then-claim ordering. Clearing on archive, on turn end, or by age. A one-step takeover. Disabling Start for providers without the skill.
+
+Amended by [Agent access to maps through MCP](./13-agent-access-mcp-tool.md): `startTicketThread` takes optional caller modes for the MCP path, and `releaseClaim` takes `force` and refuses without it only when `claimSessionState` is Working or Needs you; an Unattended claim releases without `force` or a confirm.
+
+Amended by [Entry points and empty state](./09-entry-points-and-empty-state.md): when `startTicketThread` returns, the clicking client navigates to the new thread, whose panel opens on the Wayfinder tab.
+
+Amended by [Session status on stars](./14-session-status-on-stars.md): archived threads leave the client shell index, so an archived claimant resolves as not found; the 72 h stale rule applies only to an idle claimant that is neither Working nor holding a pending request; the star, the readout, and the server's `releaseClaim` refusal share one `claimSessionState` in `packages/shared`.
+
+Amended by [Ticket readout](./06-ticket-readout.md): the claimant chip and state-line copy for every state is 06's claim table, which replaces the "Claimed by another session" label and the archived stale note; `clientRpcRequiredScopes` in `packages/contracts/src/clientRpcPermissions.ts` gains a special case returning both scopes for `wayfinder.startTicketThread`, like `gitPreparePullRequestThread`.
+
+Amended by [Spec handoff](./15-spec-handoff.md): `{NN}` is the ticket number zero-padded to at least two digits; `startTicketThread` returns `{ threadId, ticketPath }`; refusals are `WayfinderTicketNotStartableError { reason: "missing" | "resolved" | "out-of-scope" | "claimed" | "blocked" | "problem", blockers? }` and `WayfinderClaimLiveError { state: "working" | "needs-you", threadId }`; the server's `RPC_REQUIRED_SCOPES` requires the same scopes as the client table.

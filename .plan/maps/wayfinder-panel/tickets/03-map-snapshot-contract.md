@@ -43,3 +43,7 @@ Approved by the user on 2026-11-02 after a grilling round and an independent rev
 **Size.** A serialized ticket summary measures 275 bytes unclaimed and 366 bytes claimed with one asset, so a fifty-ticket map is 14 to 18 KB. The snapshot carries every map in the checkout and is resent whole on each push, so the cost is about 15 KB per map per push. Inlining bodies would add 30 to 175 KB per map, from this map's 0.6 to 3.5 KB ticket files. No relay frame cap exists; the cost argument is the performance rule.
 
 **Excluded.** Bodies in the snapshot (chartr's choice; rejected for push size). Validating `cwd` the way `projects.readFile` does, which never checks it. Dropping malformed tickets. A per-ticket claimant kind: the snapshot cannot tell a T3 thread claim from a foreign one, so ticket 07 resolves the id against thread data and shows an unknown claimant otherwise.
+
+Amended by [Ticket readout](./06-ticket-readout.md): `WayfinderMapSummary` carries a `fingerprint` of the `map.md` bytes so a cached `readMap` knows when it is stale.
+
+Amended by [Spec handoff](./15-spec-handoff.md): `readTicket` and `readMap` return `{ fingerprint, title, sections: { heading, markdown }[] }` in file order in place of named fields; `WayfinderProblem.path` is root-relative with forward slashes; `frontier` is ordered by ticket number ascending; start and release refusals are `WayfinderTicketNotStartableError { reason, blockers? }` and `WayfinderClaimLiveError { state, threadId }`.

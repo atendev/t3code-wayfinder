@@ -14,3 +14,44 @@ Ticket 03 made `WayfinderMaps` a service with `getSnapshot`, `readTicket`, and `
 ## Done when
 
 The answer either rules MCP access out with the reason, or names each tool, its input, its returned shape, its scope, the eval cases that cover its description, and any change to the skill text.
+
+## Answer
+
+Decided on 2026-11-04 by a subagent standing in for the user, at the user's request, after a self-run grilling round.
+
+**Reads stay on files.** No MCP tool exposes `getSnapshot`, `readTicket`, or `readMap`. A T3 agent runs on the environment's machine with the checkout as its working directory, so its own file tools read the same bytes the service parses, and the frontier follows from two rules in `.plan/README.md`. The snapshot is shaped for the panel (fingerprints, problems, renderer summaries); a trimmed model-facing copy would be a second contract to keep in sync. A read tool would only help an agent reading a linked environment's maps, which nobody has asked for, and every tool description costs context on every turn of every thread.
+
+**Writes get tools.** Starting a ticket thread and releasing a claim are user capabilities that an agent cannot do correctly with file tools: `.plan/README.md` forbids agents from writing `claimed_by`, and the claim must be taken under the per-root lock before launch. Both get MCP tools in a new `apps/server/src/mcp/toolkits/wayfinder/`. Each handler decodes input, calls one `WayfinderMaps` method, and maps its errors to `OrchestratorMcpFailure` with the typed reason (blocked by 03, claimed by a live thread, a frontmatter problem) in `message`.
+
+- **`t3_wayfinder_start`**, declared with `McpToolAccess.startsThreads` like `t3_thread_launch`, with `refused: "start a Wayfinder ticket thread for a linked environment"`. That access layer needs a read-write client, limits runtime and interaction modes to the caller's, and refuses a linked caller. It does not require a calling thread: `loadCaller()` returns `caller: undefined` when the call has no thread (`apps/server/src/mcp/threadAccess.ts:86-96`). Both handlers therefore refuse when `caller === undefined` after `readCaller()`, because checkout and project come from the caller's thread. No `environmentId`, so linked-environment forwarding never applies.
+  - Input: `{ mapSlug, number, clientRequestId? }`. Checkout and project come from the caller's thread, matching the panel's active-checkout rule. `clientRequestId` derives `commandId`, so a retry replays rather than creating a second thread.
+  - Returns: `{ threadId, link, ticketPath }`.
+  - Annotations: `Destructive`, `OpenWorld`.
+  - Draft description: "Start a new thread on one Wayfinder ticket in this thread's checkout and claim the ticket for it. Frontier tickets only: open, unclaimed, every blocker resolved. Not for working a ticket yourself; read its file. After an error or lost reply, retry with the same `clientRequestId`. Mention the thread with its `link`."
+- **`t3_wayfinder_release`**, declared `actsAsCaller` (it starts nothing, so mode limits do not apply).
+  - Input: `{ mapSlug, number, force? }`.
+  - Returns: `{ released: boolean }`, `false` when the ticket had no claim.
+  - Refuses without `force: true` only when the claim's session state is Working or Needs you, the `t3_project_delete` pattern: the refusal is a typed error from the service, and the handler only maps it. The service reads the claimant thread from its own projection (archived, runtime status, pending requests) and the ticket's `claimed_at`, and calls the same pure `claimSessionState` the client uses (ticket 14). An Unattended claim (claimant missing or archived, or idle with a claim older than 72 h) releases without `force`.
+  - Annotations: `Destructive`, `Idempotent`.
+  - Draft description: "Clear a Wayfinder ticket's claim. A claim whose thread is working or waiting on the user needs `force: true`."
+
+**Scope.** MCP tools have no per-RPC auth scopes. Both handlers call `readCaller()` first, as `t3_thread_launch` does, which refuses credentials without the `orchestration` capability; the access declarations then refuse read-only clients, and the handlers refuse callers outside a thread. This matches the WebSocket path's `orchestration:operate` plus `filesystem:write`. The service still runs `KnownWorkspaces.assertContains` before any write.
+
+**Amendments to ticket 07.**
+
+- `WayfinderMaps.startTicketThread` takes an optional `{ modelSelection, runtimeMode, interactionMode, linkOrigin? }` and, when called from MCP, stamps `createdBy: "agent"`, `creationSource: "mcp"`, and `senderThreadId` as `t3_thread_launch` does. The WebSocket path omits it and gets project defaults and interaction mode `default`, as before. The caller's mode limit is computed in the MCP access layer (`startsThreads`), so the service must receive modes that are already limited; `createdBy: "agent"` is what makes `ThreadLaunchService` recheck them under `DispatchModeLimit`. Without this, a caller in plan mode would start a child in `default`.
+- `releaseClaim({ cwd, mapSlug, number, force? })` returns `{ released }`. Without `force` it refuses with a typed error when `claimSessionState` is Working or Needs you, and releases otherwise. The readout confirms before Release only for Working and Needs you and passes `force: true` after the confirm; an Unattended Release has no confirm and no `force` (ticket 06's claim table).
+
+**Evals.** New `evals/mcp-tool-use/cases/wayfinder.ndjson` with authored Acme data (an `acme/app` checkout and an `onboarding` map); each case names this ticket as its `source`. Add the new toolkit to the explicit toolkit imports in `evals/mcp-tool-use/run.ts`, or the cases never see the tools. "Must not write `claimed_by`" is checked with `callsMustNot` entries `{ tool: "Edit", args: { new_string: "~claimed_by" } }` and `{ tool: "Write", args: { content: "~claimed_by" } }`, and `shellMustNot` matching `claimed_(by|at)` covers patch and shell edits. Check context size with the `--context` run before and after.
+
+1. `wayfinder-start-claims` (guard). "Start a thread on ticket 05 of the onboarding map." Expects `t3_wayfinder_start` with `{ mapSlug: "onboarding", number: 5 }`. Must not call `t3_thread_launch` or write `claimed_by`/`claimed_at` into the file.
+2. `wayfinder-start-refused-blocked` (guard). The mock returns "blocked by 03". The agent reports the blocker. Must not call `t3_thread_launch`, edit frontmatter, or try another number nobody asked for.
+3. `wayfinder-release-stale` (guard). "Ticket 07's claim is stale, free it." Expects `t3_wayfinder_release`; must not edit `claimed_by` by hand. When the mock refuses because the claimant is working or needs the user, must not retry with `force: true` unless the user said to.
+4. `wayfinder-work-own-ticket` (control). The prompt is ticket 07's start prompt (`$wayfinder Work ticket 05 of the onboarding map: …`). The agent reads `map.md` and the ticket; must not call `t3_wayfinder_start`, which would spawn a duplicate thread.
+5. `wayfinder-frontier-question` (control). "What's next on the onboarding map?" The agent reads files and answers; must not call either tool.
+
+**Skill text.** No change. The local skill defers claim mechanics to `.plan/README.md` (Pull the upstream wayfinder text changes into the local skill), and the rule that agents never write `claimed_by` still holds because the tool writes it. Agents find the tools through their descriptions.
+
+**Excluded.** Snapshot, ticket, and map read tools, and a trimmed frontier-first view. A tool that claims a ticket for the calling thread; threads users start themselves stay unclaimed. `environmentId` and linked-environment forwarding. Callers outside a thread. A `cwd` parameter. Any change to the skill or `.plan/README.md`.
+
+Amended by [Spec handoff](./15-spec-handoff.md): `t3_wayfinder_start` adds `link` to the service's `{ threadId, ticketPath }`; refusal `message` text comes from the spec's refusal copy table for `WayfinderTicketNotStartableError` and `WayfinderClaimLiveError`.
