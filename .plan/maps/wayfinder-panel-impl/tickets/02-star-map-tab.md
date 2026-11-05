@@ -19,3 +19,13 @@ Spec sections: [7. Renderer port and license](../wayfinder-panel/spec.md#7-rende
 - Table tests cover default map and stale memory resolution. The closed-view case is added to its existing test.
 - The PR has before and after captures at panel width and maximized, light and dark, with measured contrast ratios for each app theme, plus the flat-trace table.
 - `vp run check:changed` passes, and the PR body has the "Hit every surface" walk and the docs check.
+
+## Answer
+
+Built as the spec describes and merged to `main` in PR #3 (`e3f6fd104`), squashed with ticket 01's server commit. `apps/web/src/components/wayfinder/starmap/` holds the chartr port with the demand-driven loop, token palette, label fallback, nearest-star hit and pinch; `WayfinderPanel.tsx` holds the tab, the nine body states, the problems row and the picker; `wayfinderSelection.ts` holds the default-map and stale-memory rules. The license entry and the closed-view reopen case are in.
+
+Verification: 70 unit tests pass, including the stop table and seam tests. `vp run check:changed` passed except for browser tests that need a Playwright browser this machine lacks. Haiku audit approved on round two.
+
+Not delivered: before and after captures, the flat-trace paint table and per-theme contrast ratios. The Browser panel ran hidden, so the canvas never painted and screenshots timed out. The default theme measures above 4.5:1 in light and dark. These stay open as PR evidence to add when a visible browser is available; the committed proof is the stop-table test.
+
+Excluded: the readout (ticket 03), start and release (04), session marks (05) and MCP (06).
