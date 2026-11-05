@@ -7,20 +7,24 @@ import type {
 } from "@t3tools/contracts";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useEffectEvent, useLayoutEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { useTheme } from "../../hooks/useTheme";
 import { type RightPanelSurface, useRightPanelStore } from "../../rightPanelStore";
+import { useThreadShell } from "../../state/entities";
 import { useFilesystemReadAccess } from "../../state/filesystem";
 import { useEnvironmentQuery } from "../../state/query";
 import { wayfinderSnapshotAtom } from "../../state/wayfinder";
 import { Button } from "../ui/button";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "../ui/menu";
+import { ScrollArea } from "../ui/scroll-area";
 import { Spinner } from "../ui/spinner";
 import { type Camera, StarMap } from "./starmap/starmap";
 import type { StarPalette } from "./starmap/theme";
 import type { StarTicket } from "./starmap/types";
 import { PROBLEM_REASON_COPY, tildeRoot } from "./wayfinderCopy";
+import { MapReadout, READOUT_FOCUS_ATTRIBUTE, TicketReadout } from "./WayfinderReadout";
 import { resolveWayfinderSelection, sortMaps } from "./wayfinderSelection";
 
 type WayfinderSurface = Extract<RightPanelSurface, { kind: "wayfinder" }>;
@@ -62,6 +66,8 @@ function WayfinderMaps(props: {
   );
   const [fitted, setFitted] = useState(true);
   const [starMap, setStarMap] = useState<StarMap | null>(null);
+  const readoutRef = useRef<HTMLElement>(null);
+  const inWorktree = (useThreadShell(threadRef)?.worktreePath ?? null) !== null;
   const snapshot = query.data?.snapshot ?? null;
 
   if (snapshot === null) {
@@ -103,6 +109,20 @@ function WayfinderMaps(props: {
     useRightPanelStore
       .getState()
       .setWayfinderSelection(threadRef, { mapSlug, ticketNumber: number });
+  // Lists and the back button hand focus to the readout; the canvas keeps its own.
+  const selectAndFocus = (number: number | null, focus: "title" | "frontier") => {
+    flushSync(() => select(map.slug, number));
+    readoutRef.current
+      ?.querySelector<HTMLElement>(`[${READOUT_FOCUS_ATTRIBUTE}="${focus}"]`)
+      ?.focus();
+  };
+  const ticket = map.tickets.find((entry) => entry.number === ticketNumber) ?? null;
+  const readoutContext = {
+    threadRef,
+    environmentId: props.environmentId,
+    cwd: snapshot.cwd,
+    root: snapshot.root,
+  };
   const ticketProblems = map.tickets.flatMap((ticket) =>
     ticket.problems.map((problem) => ({ problem, ticketNumber: ticket.number })),
   );
@@ -113,7 +133,7 @@ function WayfinderMaps(props: {
   ];
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="@container/wayfinder flex min-h-0 flex-1 flex-col">
       <div className="flex shrink-0 items-center gap-2 border-b px-2 py-1">
         <MapPicker
           maps={maps}
@@ -138,25 +158,51 @@ function WayfinderMaps(props: {
       {problems.length > 0 ? (
         <ProblemsRow problems={problems} onSelectTicket={(number) => select(map.slug, number)} />
       ) : null}
-      {map.tickets.length === 0 ? (
-        <PanelMessage
-          title="This map has no tickets yet"
-          body={`Tickets appear as files in .plan/maps/${map.slug}/tickets/.`}
-        />
-      ) : (
-        <StarMapIsland
-          key={`${scopedThreadKey(threadRef)}:${map.slug}`}
-          cameraKey={`${scopedThreadKey(threadRef)}:${map.slug}`}
-          map={map}
-          selected={ticketNumber}
-          onSelect={(number) => select(map.slug, number)}
-          onFittedChange={setFitted}
-          onReady={setStarMap}
-        />
-      )}
-      <section aria-label="Readout" className="shrink-0 border-t px-3 py-2">
-        <p className="truncate text-sm font-medium text-foreground">{map.title}</p>
-      </section>
+      <div className="flex min-h-0 flex-1 flex-col @min-[760px]/wayfinder:flex-row">
+        <div className="flex min-h-60 min-w-0 flex-1 flex-col @min-[760px]/wayfinder:min-h-0">
+          {map.tickets.length === 0 ? (
+            <PanelMessage
+              title="This map has no tickets yet"
+              body={`Tickets appear as files in .plan/maps/${map.slug}/tickets/.`}
+            />
+          ) : (
+            <StarMapIsland
+              key={`${scopedThreadKey(threadRef)}:${map.slug}`}
+              cameraKey={`${scopedThreadKey(threadRef)}:${map.slug}`}
+              map={map}
+              selected={ticketNumber}
+              onSelect={(number) => select(map.slug, number)}
+              onFittedChange={setFitted}
+              onReady={setStarMap}
+            />
+          )}
+        </div>
+        <section
+          ref={readoutRef}
+          aria-label="Readout"
+          className="flex min-h-56 shrink-0 basis-[45%] flex-col border-t @min-[760px]/wayfinder:min-h-0 @min-[760px]/wayfinder:w-90 @min-[760px]/wayfinder:basis-auto @min-[760px]/wayfinder:border-t-0 @min-[760px]/wayfinder:border-l"
+        >
+          <ScrollArea className="min-h-0 flex-1" radius="none">
+            {ticket === null ? (
+              <MapReadout
+                context={readoutContext}
+                map={map}
+                inWorktree={inWorktree}
+                problems={[...snapshot.problems, ...map.problems]}
+                onSelect={(number) => selectAndFocus(number, "title")}
+              />
+            ) : (
+              <TicketReadout
+                context={readoutContext}
+                map={map}
+                ticket={ticket}
+                onSelect={(number) => selectAndFocus(number, "title")}
+                onBack={() => selectAndFocus(null, "frontier")}
+              />
+            )}
+          </ScrollArea>
+        </section>
+      </div>
     </div>
   );
 }
