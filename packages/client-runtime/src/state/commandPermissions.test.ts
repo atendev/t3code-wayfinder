@@ -9,6 +9,7 @@ import { vi } from "vite-plus/test";
 import {
   AuthAccessReadScope,
   AuthAccessWriteScope,
+  AuthFilesystemWriteScope,
   AuthOrchestrationOperateScope,
   AuthOrchestrationReadScope,
   AuthPreviewOperateScope,
@@ -280,6 +281,37 @@ it.effect(
         yield* prepare.authorize(registry, env, input);
       }),
     ),
+);
+
+it.effect("needs both thread and file write grants to start a Wayfinder ticket thread", () =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const registry = yield* setup;
+      const start = createCommandPermissions(runtime, WS_METHODS.wayfinderStartTicketThread);
+      const release = createCommandPermissions(runtime, WS_METHODS.wayfinderReleaseClaim);
+      const session = (scopes: NonNullable<AuthSessionState["permissions"]>): AuthSessionState => ({
+        ...grant(false),
+        scopes: [...scopes],
+        permissions: scopes,
+      });
+      registry.set(sessions(env), AsyncResult.success(session([AuthOrchestrationOperateScope])));
+      expect(registry.get(start.permissionAtom(env))).toBe(false);
+      expect((yield* start.authorize(registry, env).pipe(Effect.flip)).requiredScope).toBe(
+        AuthOrchestrationOperateScope,
+      );
+      expect(registry.get(release.permissionAtom(env))).toBe(false);
+      registry.set(sessions(env), AsyncResult.success(session([AuthFilesystemWriteScope])));
+      expect(registry.get(start.permissionAtom(env))).toBe(false);
+      expect(registry.get(release.permissionAtom(env))).toBe(true);
+      yield* release.authorize(registry, env);
+      registry.set(
+        sessions(env),
+        AsyncResult.success(session([AuthOrchestrationOperateScope, AuthFilesystemWriteScope])),
+      );
+      expect(registry.get(start.permissionAtom(env))).toBe(true);
+      yield* start.authorize(registry, env);
+    }),
+  ),
 );
 
 it.effect.each(["commit", "push", "commit_push", "create_pr", "commit_push_pr"] as const)(

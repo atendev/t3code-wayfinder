@@ -503,6 +503,10 @@
       "types": "./src/mcpApp.ts",
       "import": "./src/mcpApp.ts"
     },
+    "./wayfinderClaim": {
+      "types": "./src/wayfinderClaim.ts",
+      "import": "./src/wayfinderClaim.ts"
+    },
     "./atomicWrite": {
       "types": "./src/atomicWrite.ts",
       "import": "./src/atomicWrite.ts"

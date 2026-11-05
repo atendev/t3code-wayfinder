@@ -1,6 +1,12 @@
 import * as Schema from "effect/Schema";
 
-import { NonNegativeInt, TrimmedNonEmptyString } from "./baseSchemas.ts";
+import {
+  CommandId,
+  NonNegativeInt,
+  ProjectId,
+  ThreadId,
+  TrimmedNonEmptyString,
+} from "./baseSchemas.ts";
 
 export const WayfinderTicketType = Schema.Literals(["grilling", "research", "prototype", "task"]);
 export type WayfinderTicketType = typeof WayfinderTicketType.Type;
@@ -136,5 +142,82 @@ export class WayfinderTicketNotFoundError extends Schema.TaggedError<WayfinderTi
     return this.number === undefined
       ? `No Wayfinder map '${this.mapSlug}'.`
       : `No ticket ${this.number} in the Wayfinder map '${this.mapSlug}'.`;
+  }
+}
+
+export const WayfinderStartTicketThreadInput = Schema.Struct({
+  cwd: TrimmedNonEmptyString,
+  projectId: ProjectId,
+  mapSlug: TrimmedNonEmptyString,
+  number: NonNegativeInt,
+  /** The new thread's id derives from it, so a retry replays instead of starting a second thread. */
+  commandId: CommandId,
+});
+export type WayfinderStartTicketThreadInput = typeof WayfinderStartTicketThreadInput.Type;
+
+export const WayfinderStartTicketThreadResult = Schema.Struct({
+  threadId: ThreadId,
+  /** The ticket file relative to the snapshot root, with forward slashes. */
+  ticketPath: Schema.String,
+});
+export type WayfinderStartTicketThreadResult = typeof WayfinderStartTicketThreadResult.Type;
+
+export const WayfinderReleaseClaimInput = Schema.Struct({
+  cwd: TrimmedNonEmptyString,
+  mapSlug: TrimmedNonEmptyString,
+  number: NonNegativeInt,
+  /** Releases a claim whose thread is working or waiting on the user. */
+  force: Schema.optional(Schema.Boolean),
+});
+export type WayfinderReleaseClaimInput = typeof WayfinderReleaseClaimInput.Type;
+
+export const WayfinderReleaseClaimResult = Schema.Struct({
+  /** `false` when the ticket had no claim. */
+  released: Schema.Boolean,
+});
+export type WayfinderReleaseClaimResult = typeof WayfinderReleaseClaimResult.Type;
+
+export const WayfinderNotStartableReason = Schema.Literals([
+  "missing",
+  "resolved",
+  "out-of-scope",
+  "claimed",
+  "blocked",
+  "problem",
+]);
+export type WayfinderNotStartableReason = typeof WayfinderNotStartableReason.Type;
+
+const padTicketNumber = (number: number) => String(number).padStart(2, "0");
+
+export class WayfinderTicketNotStartableError extends Schema.TaggedError<WayfinderTicketNotStartableError>()(
+  "WayfinderTicketNotStartableError",
+  {
+    mapSlug: Schema.String,
+    number: NonNegativeInt,
+    reason: WayfinderNotStartableReason,
+    /** Present only for `blocked`: the unresolved or missing blocker numbers. */
+    blockers: Schema.optional(Schema.Array(NonNegativeInt)),
+    /** Present only for `claimed`. */
+    claimedBy: Schema.optional(Schema.String),
+  },
+) {
+  override get message(): string {
+    return `Ticket ${padTicketNumber(this.number)} of the ${this.mapSlug} map is not startable: ${this.reason}.`;
+  }
+}
+
+export const WayfinderLiveClaimState = Schema.Literals(["working", "needs-you"]);
+export type WayfinderLiveClaimState = typeof WayfinderLiveClaimState.Type;
+
+export class WayfinderClaimLiveError extends Schema.TaggedError<WayfinderClaimLiveError>()(
+  "WayfinderClaimLiveError",
+  {
+    number: NonNegativeInt,
+    state: WayfinderLiveClaimState,
+    threadId: Schema.String,
+  },
+) {
+  override get message(): string {
+    return `Ticket ${padTicketNumber(this.number)}'s claim is held by thread ${this.threadId}, which is ${this.state === "working" ? "working" : "waiting on the user"}.`;
   }
 }

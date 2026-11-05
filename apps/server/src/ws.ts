@@ -3018,6 +3018,23 @@ export const layerWsRpc = (
             .pipe(Stream.map((snapshot) => ({ _tag: "snapshot" as const, snapshot }))),
         [WS_METHODS.wayfinderReadTicket]: (input) => wayfinderMaps.readTicket(input),
         [WS_METHODS.wayfinderReadMap]: (input) => wayfinderMaps.readMap(input),
+        [WS_METHODS.wayfinderStartTicketThread]: (input) => {
+          const launchFailed = (cause: { readonly message: string }) =>
+            new OrchestrationV2ThreadLaunchError({
+              commandId: input.commandId,
+              projectId: input.projectId,
+              message: cause.message,
+              cause,
+            });
+          return startup.enqueueCommand(wayfinderMaps.startTicketThread(input)).pipe(
+            Effect.catchTags({
+              ThreadLaunchError: launchFailed,
+              ServerRuntimeStartupError: launchFailed,
+              ThreadManagementProviderInstanceDisabledError: launchFailed,
+            }),
+          );
+        },
+        [WS_METHODS.wayfinderReleaseClaim]: (input) => wayfinderMaps.releaseClaim(input),
         [WS_METHODS.vcsRefreshStatus]: (input) =>
           vcsStatusBroadcaster.refreshStatus(input.cwd, { localOnly: input.localOnly ?? false }),
         [WS_METHODS.vcsPull]: (input) =>

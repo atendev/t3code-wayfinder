@@ -124,8 +124,14 @@ import {
 } from "./worktreeSetup.ts";
 import {
   WayfinderDocument,
+  WayfinderClaimLiveError,
   WayfinderMapsReadError,
   WayfinderReadMapInput,
+  WayfinderReleaseClaimInput,
+  WayfinderReleaseClaimResult,
+  WayfinderStartTicketThreadInput,
+  WayfinderStartTicketThreadResult,
+  WayfinderTicketNotStartableError,
   WayfinderReadTicketInput,
   WayfinderSubscribeEvent,
   WayfinderSubscribeInput,
@@ -615,6 +621,8 @@ export const WS_METHODS = {
   wayfinderSubscribe: "wayfinder.subscribe",
   wayfinderReadTicket: "wayfinder.readTicket",
   wayfinderReadMap: "wayfinder.readMap",
+  wayfinderStartTicketThread: "wayfinder.startTicketThread",
+  wayfinderReleaseClaim: "wayfinder.releaseClaim",
   subscribeTerminalMetadata: "subscribeTerminalMetadata",
   subscribePreviewEvents: "subscribePreviewEvents",
   subscribeDiscoveredLocalServers: "subscribeDiscoveredLocalServers",
@@ -1508,6 +1516,28 @@ const WsWayfinderReadMapRpc = Rpc.make(WS_METHODS.wayfinderReadMap, {
   ]),
 });
 
+const WsWayfinderStartTicketThreadRpc = Rpc.make(WS_METHODS.wayfinderStartTicketThread, {
+  payload: WayfinderStartTicketThreadInput,
+  success: WayfinderStartTicketThreadResult,
+  error: Schema.Union([
+    WayfinderTicketNotStartableError,
+    WayfinderMapsReadError,
+    OrchestrationV2ThreadLaunchError,
+    EnvironmentAuthorizationError,
+  ]),
+});
+
+const WsWayfinderReleaseClaimRpc = Rpc.make(WS_METHODS.wayfinderReleaseClaim, {
+  payload: WayfinderReleaseClaimInput,
+  success: WayfinderReleaseClaimResult,
+  error: Schema.Union([
+    WayfinderClaimLiveError,
+    WayfinderTicketNotFoundError,
+    WayfinderMapsReadError,
+    EnvironmentAuthorizationError,
+  ]),
+});
+
 const WsGitRunStackedActionRpc = Rpc.make(WS_METHODS.gitRunStackedAction, {
   payload: GitRunStackedActionInput,
   success: GitActionProgressEvent,
@@ -2163,6 +2193,8 @@ export const WsRpcGroup = RpcGroup.make(
   WsWayfinderSubscribeRpc,
   WsWayfinderReadTicketRpc,
   WsWayfinderReadMapRpc,
+  WsWayfinderStartTicketThreadRpc,
+  WsWayfinderReleaseClaimRpc,
   WsVcsPullRpc,
   WsVcsRefreshStatusRpc,
   WsGitRunStackedActionRpc,

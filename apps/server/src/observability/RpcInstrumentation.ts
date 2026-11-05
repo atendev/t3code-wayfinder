@@ -152,6 +152,8 @@ const RPC_AGGREGATES = {
   [WS_METHODS.wayfinderSubscribe]: "workspace",
   [WS_METHODS.wayfinderReadTicket]: "workspace",
   [WS_METHODS.wayfinderReadMap]: "workspace",
+  [WS_METHODS.wayfinderStartTicketThread]: "workspace",
+  [WS_METHODS.wayfinderReleaseClaim]: "workspace",
   [WS_METHODS.projectsSearchContents]: "workspace",
   [WS_METHODS.projectsSearchEntries]: "workspace",
   [WS_METHODS.projectsWriteFile]: "workspace",

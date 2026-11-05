@@ -11,7 +11,7 @@ import { Textarea } from "../ui/textarea";
 import { toastManager } from "../ui/toast";
 import { PullRequestGlyph } from "./pullRequestIcons";
 import { pullRequestReviewKey } from "./pullRequestReviewStore";
-import { useInlineActionConfirm } from "./useInlineActionConfirm";
+import { useInlineActionConfirm } from "../../hooks/useInlineActionConfirm";
 
 export function PullRequestCommentForm({
   environmentId,

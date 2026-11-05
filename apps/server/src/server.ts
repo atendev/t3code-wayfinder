@@ -112,6 +112,7 @@ import * as RepositoryIdentityResolver from "./project/RepositoryIdentityResolve
 import * as WorkspaceEntries from "./workspace/WorkspaceEntries.ts";
 import * as KnownWorkspaces from "./workspace/KnownWorkspaces.ts";
 import * as WorkspaceFileSystem from "./workspace/WorkspaceFileSystem.ts";
+import * as WayfinderClaimReactor from "./wayfinder/WayfinderClaimReactor.ts";
 import * as WayfinderMaps from "./wayfinder/WayfinderMaps.ts";
 import * as WorkspacePaths from "./workspace/WorkspacePaths.ts";
 import * as GitVcsDriver from "./vcs/GitVcsDriver.ts";
@@ -508,6 +509,7 @@ const layerWorkspaceFileSystem = WorkspaceFileSystem.layer.pipe(
   Layer.provide(layerKnownWorkspaces),
 );
 
+// Built beside the reactors: starting a ticket thread needs the orchestration services.
 const layerWayfinderMaps = WayfinderMaps.layer.pipe(
   Layer.provide(layerKnownWorkspaces),
   Layer.provide(layerVcsDriverRegistry),
@@ -517,7 +519,6 @@ const layerWorkspace = Layer.mergeAll(
   WorkspacePaths.layer,
   layerWorkspaceEntries,
   layerWorkspaceFileSystem,
-  layerWayfinderMaps,
 );
 
 const layerProjectFaviconResolver = ProjectFaviconResolver.layer.pipe(
@@ -641,6 +642,12 @@ const layerRuntimeCoreDependenciesBase = Layer.mergeAll(
   ),
   layerThreadPullRequestWorker,
   DelegatedTaskAnalytics.layer,
+  Layer.effectDiscard(
+    Effect.gen(function* () {
+      const reactor = yield* WayfinderClaimReactor.WayfinderClaimReactor;
+      yield* reactor.start();
+    }),
+  ).pipe(Layer.provideMerge(WayfinderClaimReactor.layer), Layer.provideMerge(layerWayfinderMaps)),
   Layer.effectDiscard(
     Effect.gen(function* () {
       const service = yield* PullRequestSyncReactor.PullRequestSyncReactor;

@@ -1,11 +1,21 @@
+import { scopeThreadRef } from "@t3tools/client-runtime/environment";
+import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
 import {
+  createEnvironmentRpcCommand,
   createEnvironmentRpcQueryAtomFamily,
   createEnvironmentRpcSubscriptionAtomFamily,
 } from "@t3tools/client-runtime/state/runtime";
-import { type EnvironmentId, type WayfinderMapsSnapshot, WS_METHODS } from "@t3tools/contracts";
+import {
+  type EnvironmentId,
+  ThreadId,
+  type WayfinderMapsSnapshot,
+  WS_METHODS,
+} from "@t3tools/contracts";
+import type { ClaimantThread } from "@t3tools/shared/wayfinderClaim";
 import { AsyncResult, Atom } from "effect/reactivity";
 
 import { connectionAtomRuntime } from "../connection/runtime";
+import { environmentThreadShells } from "./threads";
 
 export const wayfinderSnapshotAtom = createEnvironmentRpcSubscriptionAtomFamily(
   connectionAtomRuntime,
@@ -100,4 +110,42 @@ export const wayfinderMapDocumentAtom = createEnvironmentRpcQueryAtomFamily(conn
   staleTimeMs: 10 * 60_000,
   refreshTrigger: ({ environmentId, input }) =>
     documentFingerprints.map({ environmentId, cwd: input.cwd, mapSlug: input.mapSlug }),
+});
+
+export const wayfinderStartTicketThread = createEnvironmentRpcCommand(connectionAtomRuntime, {
+  label: "environment-data:wayfinder:start-ticket-thread",
+  tag: WS_METHODS.wayfinderStartTicketThread,
+});
+
+export const wayfinderReleaseClaim = createEnvironmentRpcCommand(connectionAtomRuntime, {
+  label: "environment-data:wayfinder:release-claim",
+  tag: WS_METHODS.wayfinderReleaseClaim,
+});
+
+/** Archived threads leave the shell index, so an archived claimant arrives as `null`. */
+function claimantFromThreadShell(shell: EnvironmentThreadShell | null): ClaimantThread | null {
+  if (shell === null) return null;
+  return {
+    archived: shell.archivedAt !== null,
+    runtimeStatus: shell.runtime?.status ?? null,
+    pendingRequest: shell.hasPendingApprovals
+      ? "approval"
+      : shell.hasPendingUserInput
+        ? "input"
+        : (shell.pendingSubagentRequest ?? null) === null
+          ? null
+          : "subagent",
+  };
+}
+
+/**
+ * The claimant's session-state inputs as a JSON string, so shell updates that leave them alone,
+ * such as streaming tokens, never re-render the readout.
+ */
+export const wayfinderClaimantAtom = Atom.family((key: string) => {
+  const [environmentId, threadId] = JSON.parse(key) as [EnvironmentId, string];
+  const shellAtom = environmentThreadShells.threadShellAtom(
+    scopeThreadRef(environmentId, ThreadId.make(threadId)),
+  );
+  return Atom.make((get) => JSON.stringify(claimantFromThreadShell(get(shellAtom))));
 });

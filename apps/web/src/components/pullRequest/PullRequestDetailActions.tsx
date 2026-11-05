@@ -26,7 +26,7 @@ import type { resolvePullRequestPrimaryControl } from "./pullRequestDetail.logic
 import { PullRequestGlyph } from "./pullRequestIcons";
 import type { resolvePullRequestState } from "./pullRequestPresentation";
 import type { PickableEnvironment } from "./pullRequestProjectAssignment.logic";
-import { useInlineActionConfirm } from "./useInlineActionConfirm";
+import { useInlineActionConfirm } from "../../hooks/useInlineActionConfirm";
 
 export type PerformPullRequestAction = (
   action: PullRequestAction,
