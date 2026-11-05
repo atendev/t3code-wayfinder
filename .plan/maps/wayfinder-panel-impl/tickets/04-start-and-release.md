@@ -23,3 +23,16 @@ Spec sections: [14. Start thread, claim, and release](../wayfinder-panel/spec.md
 - The PR has captures of each action-row state and a short video of start through navigation, using the Replay provider.
 - A concise `docs/user/wayfinder.md`, linked from `docs/README.md`, covers what the tab shows, how to start a ticket, and what an Unattended claim means.
 - `vp run check:changed` passes, and the PR body has the "Hit every surface" walk and the docs check.
+
+## Answer
+
+Built on `wayfinder/04-start-and-release` (`de8aa478c`).
+
+- `claimSessionState` lives in `@t3tools/shared/wayfinderClaim`, and client-runtime's active run statuses now come from it. Stamp and strip are line-based ports of chartr in `apps/server/src/wayfinder/claim.ts`, and they keep the frontmatter's line ending.
+- `WayfinderMaps.startTicketThread` and `releaseClaim` run under a `KeyedLock` per root. Start re-reads the map, refuses with `WayfinderTicketNotStartableError`, derives the thread id from `commandId`, writes the claim atomically, and calls `ThreadLaunchService.launch`. A launch that fails or is cancelled without creating a thread strips the claim. A retry whose first attempt claimed the ticket replays the launch.
+- The server derives the claimant's session state from its own projection. It reads the active shell snapshot so subagent and side-chat requests count as they do on the client. Delegated tasks in linked environments are out of the server's view.
+- `WayfinderClaimReactor` strips a deleted thread's claim on open tickets, and the claim on a resolved or ruled-out ticket stays. Its test drains the reactor's own worker after a `thread.deleted` from `streamDomainEvents`, not `OrchestrationEffectWorkerV2`, which never sees that stream.
+- The `WayfinderMaps` layer moved beside the reactors in `server.ts` because start needs the orchestration services.
+- The readout's action row and claim table follow sections 14 and 15. `useInlineActionConfirm` moved to `apps/web/src/hooks/`. User docs are at `docs/user/wayfinder.md`.
+
+Accepted on local checks: `check:changed` passes apart from a stale agent worktree's tests and a missing Playwright browser, and `ci.yml` runs only on pull requests and `main` with Blacksmith runners the fork lacks. Still owed for the PR: captures of each action-row state, a start-to-navigation video on the Replay provider, and the `test-t3-app` pass. A missing default model refuses with an error, which is open as [Start thread when the project has no default model](../../wayfinder-panel/tickets/16-start-without-default-model.md).

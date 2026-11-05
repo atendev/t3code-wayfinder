@@ -19,6 +19,7 @@ The Wayfinder tab ships in web and desktop as `../wayfinder-panel/spec.md` descr
 - [Map snapshot service and subscription](./tickets/01-map-snapshot-service.md) — contracts, parser, per-root watcher and three read-scoped RPCs. The first read waits for the watch to arm. Accepted on local checks because the fork has no Blacksmith runners.
 - [Star-map tab](./tickets/02-star-map-tab.md) — chartr port, Waypoints tab with its entry points, nine body states, problems row and picker with per-thread memory. Merged in PR #3; captures and the paint table still owed.
 - [Map and ticket readout](./tickets/03-map-and-ticket-readout.md) — map and ticket readouts beside or under the canvas by a 760 px container query, fingerprint-triggered body fetches, list rows that select and move focus.
+- [Start a ticket thread and release its claim](./tickets/04-start-and-release.md) — stamp and launch under a per-root lock, strip on a launch that leaves no thread, unforced release refused for a live claimant, a reactor that clears deleted threads' claims, and the readout's action row. Captures and video still owed; a missing default model is open on the `wayfinder-panel` map.
 
 ## Not yet specified
 
