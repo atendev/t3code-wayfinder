@@ -34,6 +34,8 @@ interface Harness {
   resize: (() => void)[];
   ctx: Record<string, unknown> | null;
   drawn: { text: string; x: number; y: number; align: string; font: string }[];
+  arcs: number;
+  dashes: number[][];
 }
 
 let harness: Harness;
@@ -50,18 +52,22 @@ function recordingContext(h: Harness): Record<string, unknown> {
     fillText(this: Record<string, unknown>, text: string, x: number, y: number) {
       h.drawn.push({ text, x, y, align: this.textAlign as string, font: this.font as string });
     },
+    arc: () => {
+      h.arcs++;
+    },
+    setLineDash: (segments: number[]) => {
+      h.dashes.push(segments);
+    },
   };
   for (const m of [
     "fillRect",
     "beginPath",
-    "arc",
     "fill",
     "stroke",
     "moveTo",
     "lineTo",
     "closePath",
     "quadraticCurveTo",
-    "setLineDash",
     "save",
     "restore",
     "translate",
@@ -75,7 +81,15 @@ function recordingContext(h: Harness): Record<string, unknown> {
 
 function setup(options: { live: boolean }): Harness {
   let nextFrame = 0;
-  const h: Harness = { frames: new Map(), paints: 0, resize: [], ctx: null, drawn: [] };
+  const h: Harness = {
+    frames: new Map(),
+    paints: 0,
+    resize: [],
+    ctx: null,
+    drawn: [],
+    arcs: 0,
+    dashes: [],
+  };
   h.ctx = options.live ? recordingContext(h) : null;
   vi.stubGlobal("window", Object.assign(new EventTarget(), { devicePixelRatio: 1 }));
   vi.stubGlobal("document", { createElement: () => new FakeCanvas(h.ctx) });
@@ -455,6 +469,33 @@ describe("the session overlay and ticker", () => {
     expect(sm.ticker()).toContain("#04 → frontier");
   });
 
+  // One paint per row; the extra arcs over a claimed star with no session key are its marks.
+  it.each([
+    { sessions: {}, extraArcs: 0, dashed: false },
+    { sessions: { 3: "working" } as const, extraArcs: 3, dashed: false },
+    { sessions: { 3: "needs_user" } as const, extraArcs: 2, dashed: false },
+    { sessions: { 3: "unattended" } as const, extraArcs: 0, dashed: true },
+  ])("draws the marks the grammar names for $sessions", ({ sessions, extraArcs, dashed }) => {
+    const paintArcs = (states: Record<number, SessionState>) => {
+      vi.useFakeTimers({ toFake: ["performance", "setTimeout", "clearTimeout"] });
+      setup({ live: true });
+      const { sm } = mounted();
+      sm.setModel(SESSION_LIFECYCLE[0]!.tickets, states);
+      settle();
+      harness.arcs = 0;
+      harness.dashes = [];
+      sm.setPalette(PALETTE);
+      step(16);
+      // The orbit dash is even and scales with the camera; edge dashes are uneven.
+      const dashed = harness.dashes.some((d) => d.length === 2 && d[0] === d[1] && d[0]! > 0);
+      return { arcs: harness.arcs, dashed };
+    };
+    const bare = paintArcs({});
+    const marked = paintArcs(sessions);
+    expect(marked.arcs - bare.arcs).toBe(extraArcs);
+    expect(marked.dashed).toBe(dashed);
+  });
+
   it("gives every session state a distinct shape and spends at most two hues", () => {
     const all: SessionState[] = ["working", "needs_user", "unattended"];
     expect(new Set(all.map(nonColorSignature)).size).toBe(all.length);
@@ -683,6 +724,20 @@ describe("the render loop stops", () => {
         sm.setModel(fixture({ 1: "resolved" }));
         expect(harness.frames.size).toBe(1);
         expect(sm.ticker()).toContain("#01");
+      },
+    },
+    {
+      name: "setModel with a session-state change paints once, with no flare and no ticker line",
+      act: ({ sm }) => {
+        const claimed = fixture({ 3: "claimed" });
+        sm.setModel(claimed, {});
+        expectAtRest();
+        sm.setModel(claimed, { 3: "working" });
+        expect(harness.frames.size).toBe(1);
+        step(16);
+        expect(harness.frames.size).toBe(0);
+        expect(sm.ticker()).toBe(null);
+        expect(sm.overlays()).toEqual({ 3: "working" });
       },
     },
     {
