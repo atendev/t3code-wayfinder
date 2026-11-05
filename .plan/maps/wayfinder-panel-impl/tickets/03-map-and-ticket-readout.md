@@ -19,3 +19,15 @@ Spec sections: [13. Readout](../wayfinder-panel/spec.md#13-readout), [17. Access
 - The PR has captures of both layouts and both readouts in light and dark, and flat-trace rows for selecting from a Frontier row and a blocker row (one paint each).
 - 02 and 03 merge back to back with no release cut between them, because 02 alone lacks the non-canvas path.
 - `vp run check:changed` passes, and the PR body has the "Hit every surface" walk and the docs check.
+
+## Answer
+
+Built as spec section 13 describes, in commit `104118a3d` on `wayfinder/03-map-and-ticket-readout`. `WayfinderReadout.tsx` holds the map readout and the ticket readout; `WayfinderPanel.tsx` lays them out with a container query at 760 px (a 360 px column above, a 45% stacked basis below) and moves focus to the title after a list or blocker selection and to the Frontier heading after back. `apps/web/src/state/wayfinder.ts` reads bodies through `readTicket` and `readMap` query atoms whose refresh trigger is the file's fingerprint from the snapshot stream, so an equal fingerprint keeps the body and a new one refetches with the old body still shown.
+
+Two choices the spec left open: the title renders as an `h2` so it does not outrank the page heading, and the back button uses the 28 px `compact` size because this Button has no `sm`.
+
+Verification: the staleness test covers equal, changed and removed fingerprints for both documents. `vp run check:changed` passes in full. On the dev server both layouts, both readouts, the Frontier and blocker rows, focus moves and the map picker were exercised in light and dark; readout tokens measure 4.83:1 and above on `--card` in light and 7.15:1 and above in dark. Haiku audit approved on round two after a worktree-detection fix.
+
+Not delivered: captures and the two flat-trace rows. The Browser panel ran hidden, so the canvas never painted. The selection path is the renderer's `select()`, whose one-paint row is in the stop table.
+
+Excluded: the action row and claim table (ticket 04).
