@@ -59,6 +59,7 @@ import {
   PullRequestsToolkit,
 } from "../../apps/server/src/mcp/toolkits/pullRequests/tools.ts";
 import { ThreadToolkit } from "../../apps/server/src/mcp/toolkits/thread/tools.ts";
+import { WayfinderToolkit } from "../../apps/server/src/mcp/toolkits/wayfinder/tools.ts";
 import { WorktreeToolkit } from "../../apps/server/src/mcp/toolkits/worktree/tools.ts";
 import {
   CLAUDE_PROVIDER,
@@ -379,6 +380,7 @@ const t3SourceTools: ReadonlyArray<Tool.Any> = [
   ThreadToolkit,
   AttachmentToolkit,
   ProjectToolkit,
+  WayfinderToolkit,
   EnvironmentToolkit,
   PreviewControlsToolkit,
   WorktreeToolkit,
