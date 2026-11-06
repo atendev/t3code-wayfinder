@@ -18,3 +18,7 @@ Spec sections: [14. Start thread, claim, and release](../wayfinder-panel/spec.md
 - The section 18 row for 07 holds: the shared table test, web's `providerInstances` tests passing unchanged, and the two `WayfinderMaps` cases.
 - The PR has a short runtime transcript of Start on a project with no default model. No captures, since nothing visible changes.
 - `vp run check:changed` passes, and the PR body has the "Hit every surface" walk and the docs check.
+
+## Answer
+
+Built as specified. `@t3tools/shared/providerModelDefault` holds the four-step rule behind `resolveProjectDefaultProviderModelSelection`, with a minimal `ProviderSelectionEntry` that web's `ProviderInstanceEntry` extends, so display fields stay in web and web re-exports the moved functions. `WayfinderMaps.launchSettings` uses the rule when the effective default is `null`, before the usage-limit fallback, and a launch with no selectable provider fails through the untyped error with "No provider is ready. Set one up in Settings, then try again." The `caller` path is unchanged. A shared table test and two `WayfinderMaps` cases cover it; web's `providerInstances` tests pass unchanged. Accepted on local checks: CI runs on pull requests only and the fork has no Blacksmith runners. The runtime transcript is not captured.
