@@ -5,9 +5,13 @@ import {
   type CommandId,
   ComposerContextId,
   isProviderNativeSubagentThread,
+  type ModelSelection,
   type OrchestrationMessageContext,
+  type OrchestrationV2LinkOrigin,
   type OrchestrationV2ThreadShell,
   type ProjectId,
+  type ProviderInteractionMode,
+  type RuntimeMode,
   ThreadId,
   WayfinderClaimLiveError,
   type WayfinderDocument,
@@ -120,6 +124,16 @@ export interface WayfinderStartTicketThreadServiceInput {
   readonly mapSlug: string;
   readonly number: number;
   readonly commandId: CommandId;
+  /** The agent thread starting it over MCP, with modes already limited to its own. */
+  readonly caller?: WayfinderStartTicketThreadCaller;
+}
+
+export interface WayfinderStartTicketThreadCaller {
+  readonly threadId: ThreadId;
+  readonly modelSelection: ModelSelection;
+  readonly runtimeMode: RuntimeMode;
+  readonly interactionMode: ProviderInteractionMode;
+  readonly linkOrigin?: OrchestrationV2LinkOrigin | undefined;
 }
 
 const padTicketNumber = (number: number) => String(number).padStart(2, "0");
@@ -661,6 +675,7 @@ const make = Effect.gen(function* () {
     readonly cwd: string;
     readonly projectId: ProjectId;
     readonly commandId: CommandId;
+    readonly caller?: WayfinderStartTicketThreadCaller | undefined;
   }) {
     const launchError = (cause: unknown) =>
       new ThreadLaunch.ThreadLaunchError({
@@ -673,6 +688,14 @@ const make = Effect.gen(function* () {
       yield* projects.getById(input.projectId).pipe(Effect.mapError(launchError)),
     );
     if (project === undefined) return yield* launchError(new Error("The project was not found."));
+    const workspaceStrategy: ThreadLaunch.ThreadLaunchWorkspaceStrategy =
+      path.resolve(input.cwd) === path.resolve(project.workspaceRoot)
+        ? { type: "root" }
+        : { type: "existing_worktree", worktreePath: input.cwd };
+    if (input.caller !== undefined) {
+      const { modelSelection, runtimeMode, interactionMode } = input.caller;
+      return { modelSelection, runtimeMode, interactionMode, workspaceStrategy };
+    }
     const settings = resolveProjectSettings(
       yield* serverSettings.getSettings.pipe(Effect.mapError(launchError)),
       input.projectId,
@@ -698,11 +721,8 @@ const make = Effect.gen(function* () {
         (provider) => provider.instanceId === modelSelection.instanceId,
       )?.supportedRuntimeModes,
     }).pipe(Effect.orElseSucceed(() => settings.defaultRuntimeMode));
-    const workspaceStrategy: ThreadLaunch.ThreadLaunchWorkspaceStrategy =
-      path.resolve(input.cwd) === path.resolve(project.workspaceRoot)
-        ? { type: "root" }
-        : { type: "existing_worktree", worktreePath: input.cwd };
-    return { modelSelection, runtimeMode, workspaceStrategy };
+    const interactionMode: ProviderInteractionMode = "default";
+    return { modelSelection, runtimeMode, interactionMode, workspaceStrategy };
   });
 
   const threadExists = (threadId: ThreadId) =>
@@ -717,6 +737,7 @@ const make = Effect.gen(function* () {
   )(function* (input) {
     const root = yield* resolveRoot(input.cwd);
     const threadId = ThreadId.make(input.commandId);
+    const caller = input.caller;
     const notStartable = (
       detail: Pick<WayfinderTicketNotStartableError, "reason" | "blockers" | "claimedBy">,
     ) =>
@@ -755,15 +776,22 @@ const make = Effect.gen(function* () {
             generateTitle: false,
             modelSelection: settings.modelSelection,
             runtimeMode: settings.runtimeMode,
-            interactionMode: "default",
+            interactionMode: settings.interactionMode,
             workspaceStrategy: settings.workspaceStrategy,
             initialMessage: {
               text: startPrompt(input.mapSlug, input.number, file.name),
               attachments: [],
               context: WAYFINDER_SKILL_CONTEXT,
+              ...(caller === undefined ? {} : { senderThreadId: caller.threadId }),
             },
-            createdBy: "user",
-            creationSource: "web",
+            ...(caller === undefined
+              ? { createdBy: "user", creationSource: "web" }
+              : {
+                  // An agent launch makes ThreadLaunchService recheck the modes under DispatchModeLimit.
+                  createdBy: "agent",
+                  creationSource: "mcp",
+                  ...(caller.linkOrigin === undefined ? {} : { linkOrigin: caller.linkOrigin }),
+                }),
           })
           .pipe(
             // A failed or interrupted launch that left no thread gives the ticket back.

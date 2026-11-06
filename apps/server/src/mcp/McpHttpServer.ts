@@ -77,6 +77,8 @@ import {
   DeviceStandardToolkit,
 } from "./toolkits/device/tools.ts";
 import * as HtmlHandlers from "./toolkits/html/handlers.ts";
+import * as WayfinderHandlers from "./toolkits/wayfinder/handlers.ts";
+import { WayfinderToolkit } from "./toolkits/wayfinder/tools.ts";
 import { HtmlPreviewTool, HtmlPreviewToolkit, HtmlRenderToolkit } from "./toolkits/html/tools.ts";
 
 const mcpResourceMetadataUrl = (request: HttpServerRequest.HttpServerRequest) =>
@@ -819,6 +821,7 @@ const HANDOFF_TOOLS: ReadonlySet<string> = new Set([
   "delegate_task",
   "create_threads",
   "t3_thread_launch",
+  "t3_wayfinder_start",
   "t3_thread_send",
   "t3_thread_send_attachments",
   "schedule_task",
@@ -1122,6 +1125,8 @@ const layerEnvironmentToolkit = toolkitRegistration(
 
 export const layerProjectRegistration = toolkitRegistration(ProjectToolkit, ProjectHandlers.layer);
 
+const layerWayfinderRegistration = toolkitRegistration(WayfinderToolkit, WayfinderHandlers.layer);
+
 export const layerAttachmentToolkit = toolkitRegistration(
   AttachmentToolkit,
   AttachmentHandlers.layer,
@@ -1162,6 +1167,7 @@ export const layerTools = Layer.mergeAll(
   layerThreadToolkit,
   layerAttachmentToolkit,
   layerProjectRegistration,
+  layerWayfinderRegistration,
   layerEnvironmentToolkit,
   layerPreviewControlsRegistration,
   layerWorktreeToolkitRegistration,

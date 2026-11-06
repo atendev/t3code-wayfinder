@@ -443,6 +443,47 @@ describe("WayfinderMaps.startTicketThread", () => {
     ),
   );
 
+  it.effect(
+    "launches an agent caller's start with its model and limited modes, as the agent",
+    () => {
+      const launched: Array<ThreadLaunch.ThreadLaunchInput> = [];
+      const callerModel = { instanceId: ProviderInstanceId.make("codex"), model: "gpt-caller" };
+      return withMaps(
+        {
+          launch: (input) => {
+            launched.push(input);
+            return Effect.succeed({
+              threadId: input.threadId!,
+              resumed: false,
+            } as ThreadLaunch.ThreadLaunchResult);
+          },
+        },
+        (root) =>
+          Effect.gen(function* () {
+            yield* writeTickets(root, { "01-one.md": TICKET("type: task\n") });
+            const maps = yield* WayfinderMaps.WayfinderMaps;
+            yield* maps.startTicketThread({
+              ...startInput(root, 1, "command-a"),
+              caller: {
+                threadId: ThreadId.make("thread:caller"),
+                modelSelection: callerModel,
+                runtimeMode: "auto-accept-edits",
+                interactionMode: "plan",
+              },
+            });
+            expect(launched[0]).toMatchObject({
+              modelSelection: callerModel,
+              runtimeMode: "auto-accept-edits",
+              interactionMode: "plan",
+              createdBy: "agent",
+              creationSource: "mcp",
+              initialMessage: { senderThreadId: "thread:caller" },
+            });
+          }),
+      );
+    },
+  );
+
   it.effect("names the unresolved blockers of a ticket off the frontier", () =>
     withMaps({}, (root) =>
       Effect.gen(function* () {
