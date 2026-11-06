@@ -11,7 +11,11 @@ import {
   type WayfinderMapsSnapshot,
   WS_METHODS,
 } from "@t3tools/contracts";
-import type { ClaimantThread } from "@t3tools/shared/wayfinderClaim";
+import {
+  type ClaimantThread,
+  type ClaimSessionState,
+  claimSessionState,
+} from "@t3tools/shared/wayfinderClaim";
 import { AsyncResult, Atom } from "effect/reactivity";
 
 import { connectionAtomRuntime } from "../connection/runtime";
@@ -149,4 +153,30 @@ export const wayfinderClaimantAtom = Atom.family((key: string) => {
     scopeThreadRef(environmentId, ThreadId.make(threadId)),
   );
   return Atom.make((get) => JSON.stringify(claimantFromThreadShell(get(shellAtom))));
+});
+
+/** A claimed ticket's inputs to `claimSessionState`: number, claimant thread id, `claimed_at`. */
+export type WayfinderClaimKey = readonly [number, string, string | null];
+
+/**
+ * Session state per claimed ticket as a JSON string, read once per claimant shell, so only a
+ * state flip re-renders the canvas host. No timer watches the 72 h boundary.
+ */
+export const wayfinderSessionStatesAtom = Atom.family((key: string) => {
+  const [environmentId, claims] = JSON.parse(key) as [EnvironmentId, WayfinderClaimKey[]];
+  return Atom.make((get) => {
+    const now = Date.now();
+    const states: Record<number, ClaimSessionState["state"]> = {};
+    for (const [number, threadId, claimedAt] of claims) {
+      const shellAtom = environmentThreadShells.threadShellAtom(
+        scopeThreadRef(environmentId, ThreadId.make(threadId)),
+      );
+      states[number] = claimSessionState(
+        claimantFromThreadShell(get(shellAtom)),
+        claimedAt,
+        now,
+      ).state;
+    }
+    return JSON.stringify(states);
+  });
 });

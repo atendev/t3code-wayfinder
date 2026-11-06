@@ -1,3 +1,4 @@
+import { useAtomValue } from "@effect/atom-react";
 import { scopedThreadKey } from "@t3tools/client-runtime/environment";
 import type {
   EnvironmentId,
@@ -5,6 +6,7 @@ import type {
   WayfinderMapSummary,
   WayfinderProblem,
 } from "@t3tools/contracts";
+import type { ClaimSessionState } from "@t3tools/shared/wayfinderClaim";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useEffectEvent, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
@@ -15,15 +17,21 @@ import { type RightPanelSurface, useRightPanelStore } from "../../rightPanelStor
 import { useThreadShell } from "../../state/entities";
 import { useFilesystemReadAccess } from "../../state/filesystem";
 import { useEnvironmentQuery } from "../../state/query";
-import { wayfinderSnapshotAtom } from "../../state/wayfinder";
+import { useEnvironmentShellHasSnapshot } from "../../state/shell";
+import {
+  type WayfinderClaimKey,
+  wayfinderSessionStatesAtom,
+  wayfinderSnapshotAtom,
+} from "../../state/wayfinder";
 import { Button } from "../ui/button";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "../ui/menu";
 import { ScrollArea } from "../ui/scroll-area";
 import { Spinner } from "../ui/spinner";
+import type { SessionState } from "./starmap/session";
 import { type Camera, StarMap } from "./starmap/starmap";
 import type { StarPalette } from "./starmap/theme";
 import type { StarTicket } from "./starmap/types";
-import { PROBLEM_REASON_COPY, tildeRoot } from "./wayfinderCopy";
+import { canvasSummary, PROBLEM_REASON_COPY, tildeRoot } from "./wayfinderCopy";
 import { MapReadout, READOUT_FOCUS_ATTRIBUTE, TicketReadout } from "./WayfinderReadout";
 import { resolveWayfinderSelection, sortMaps } from "./wayfinderSelection";
 
@@ -171,6 +179,7 @@ function WayfinderMaps(props: {
             <StarMapIsland
               key={`${scopedThreadKey(threadRef)}:${map.slug}`}
               cameraKey={`${scopedThreadKey(threadRef)}:${map.slug}`}
+              environmentId={props.environmentId}
               map={map}
               selected={ticketNumber}
               onSelect={(number) => select(map.slug, number)}
@@ -377,8 +386,39 @@ function readPalette(
   return { ...colors, label, scheme, highContrast };
 }
 
+const STAR_SESSION_STATE: Record<ClaimSessionState["state"], SessionState> = {
+  working: "working",
+  "needs-you": "needs_user",
+  unattended: "unattended",
+};
+
+function claimKeys(map: WayfinderMapSummary): WayfinderClaimKey[] {
+  return map.tickets.flatMap((ticket) =>
+    ticket.status === "claimed" && ticket.claimedBy !== null
+      ? [[ticket.number, ticket.claimedBy, ticket.claimedAt] as const]
+      : [],
+  );
+}
+
+/** Session state per claimed star; empty until the environment's thread shells have loaded. */
+function useStarSessions(
+  environmentId: EnvironmentId,
+  map: WayfinderMapSummary,
+): Record<number, SessionState> {
+  const loaded = useEnvironmentShellHasSnapshot(environmentId);
+  const key = useAtomValue(
+    wayfinderSessionStatesAtom(JSON.stringify([environmentId, claimKeys(map)])),
+  );
+  if (!loaded) return {};
+  const states = JSON.parse(key) as Record<number, ClaimSessionState["state"]>;
+  return Object.fromEntries(
+    Object.entries(states).map(([number, state]) => [number, STAR_SESSION_STATE[state]]),
+  );
+}
+
 function StarMapIsland(props: {
   readonly cameraKey: string;
+  readonly environmentId: EnvironmentId;
   readonly map: WayfinderMapSummary;
   readonly selected: number | null;
   readonly onSelect: (num: number) => void;
@@ -391,6 +431,7 @@ function StarMapIsland(props: {
   const highContrast = useMediaQuery("(prefers-contrast: more)");
   const { resolvedTheme, themeHalves } = useTheme();
   const tickets = starTickets(props.map);
+  const sessions = useStarSessions(props.environmentId, props.map);
   const emitSelect = useEffectEvent((num: number) => props.onSelect(num));
   const reportFitted = useEffectEvent((fitted: boolean) => props.onFittedChange(fitted));
   const reportReady = useEffectEvent((map: StarMap | null) => props.onReady(map));
@@ -398,7 +439,7 @@ function StarMapIsland(props: {
     map.mount(host);
     map.setReducedMotion(reducedMotion);
     map.setPalette(readPalette(host, resolvedTheme, highContrast));
-    map.setModel(tickets);
+    map.setModel(tickets, sessions);
     map.select(props.selected);
     const remembered = rememberedCameras.get(props.cameraKey);
     if (remembered && !remembered.fitted) map.restoreCamera(remembered);
@@ -449,7 +490,7 @@ function StarMapIsland(props: {
   useLayoutEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    map.setModel(tickets);
+    map.setModel(tickets, sessions);
     reportFitted(map.camera().fitted);
   });
 
@@ -458,13 +499,17 @@ function StarMapIsland(props: {
     mapRef.current?.select(props.selected);
   }, [props.selected]);
 
-  const frontier = props.map.frontier.length;
   return (
     <div
       ref={hostRef}
       role="img"
       tabIndex={0}
-      aria-label={`${props.map.title}, ${tickets.length} ${tickets.length === 1 ? "ticket" : "tickets"}, ${frontier} on the frontier`}
+      aria-label={canvasSummary(
+        props.map.title,
+        tickets.length,
+        props.map.frontier.length,
+        sessions,
+      )}
       onPointerUp={syncFitted}
       onPointerCancel={syncFitted}
       onWheel={syncFitted}

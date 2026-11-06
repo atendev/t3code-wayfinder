@@ -5,6 +5,8 @@ import type {
 } from "@t3tools/contracts";
 import type { ClaimSessionState } from "@t3tools/shared/wayfinderClaim";
 
+import type { SessionState } from "./starmap/session";
+
 export const PROBLEM_REASON_COPY: Record<WayfinderProblemReason, string> = {
   unreadable: "Can't be read",
   "invalid-filename": "File name has no ticket number",
@@ -71,4 +73,30 @@ export function claimStateLine(session: ClaimSessionState, days: number): string
   return session.reason === "no_thread"
     ? "Unattended: no open thread holds this claim"
     : `Unattended: claimed ${days} days ago`;
+}
+
+const SESSION_CLAUSES: ReadonlyArray<readonly [SessionState, string]> = [
+  ["working", "working"],
+  ["needs_user", "needs you"],
+  ["unattended", "unattended"],
+];
+
+/** The canvas's one-line screen-reader summary, with a clause per non-zero session state. */
+export function canvasSummary(
+  title: string,
+  ticketCount: number,
+  frontierCount: number,
+  sessions: Readonly<Record<number, SessionState>>,
+): string {
+  const parts = [
+    title,
+    `${ticketCount} ${ticketCount === 1 ? "ticket" : "tickets"}`,
+    `${frontierCount} on the frontier`,
+  ];
+  const states = Object.values(sessions);
+  for (const [state, label] of SESSION_CLAUSES) {
+    const count = states.filter((entry) => entry === state).length;
+    if (count > 0) parts.push(`${count} ${label}`);
+  }
+  return parts.join(", ");
 }

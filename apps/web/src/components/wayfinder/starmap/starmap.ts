@@ -5,7 +5,7 @@
 // context the island still ingests, lays out and selects, and draws nothing.
 
 import { computeLayout, edgesOf, structureSignature, TAU } from "./layout";
-import type { SessionState } from "./session";
+import { GRAMMAR, type SessionState } from "./session";
 import { STAR_SIZE, starColor, type StarPalette, visualState, type VisualState } from "./theme";
 import type { StarTicket } from "./types";
 
@@ -74,6 +74,16 @@ const SELECTED_LABEL_PAD = 16;
 const ORBIT_PAD = 6;
 const SELECTION_PAD = 15;
 const MARK_STROKE = 1.5;
+const ORBIT_DASH = [3, 3];
+const MOON_ANGLE = -TAU / 8;
+const MOON_R = 3;
+const HALO_R = 5.5;
+const TRAIL_R = 1.5;
+// Behind the moon, counter-clockwise, in degrees of orbit and alpha.
+const TRAIL = [
+  { deg: 25, alpha: 0.7 },
+  { deg: 50, alpha: 0.45 },
+];
 
 const FINE_HIT_PX = 14;
 const COARSE_HIT_PX = 22;
@@ -868,14 +878,43 @@ export class StarMap {
     }
     g.globalAlpha = 1;
     const core = size.r * s;
-    if (n.vstate === "claimed") {
-      g.strokeStyle = this.#colors.claimed;
-      this.#ring(g, x, y, (core + ORBIT_PAD) / s, MARK_STROKE / s);
-    }
+    if (n.vstate === "claimed") this.#drawSessionMarks(g, n, core);
     if (this.#selected === n.num) {
       g.strokeStyle = this.#colors.edge;
       this.#ring(g, x, y, (core + SELECTION_PAD) / s, MARK_STROKE / s);
     }
+  }
+
+  // Every claimed star wears one orbit ring; the moon and its marks follow the state's grammar.
+  // A claimed star with no state yet wears the solid ring alone.
+  #drawSessionMarks(g: CanvasRenderingContext2D, n: Node, core: number): void {
+    const s = this.#cam.s;
+    const grammar = n.sstate === null ? null : GRAMMAR[n.sstate];
+    const hue = grammar?.hue === "blocked" ? this.#colors.blocked : this.#colors.claimed;
+    const orbit = (core + ORBIT_PAD) / s;
+    g.strokeStyle = hue;
+    g.fillStyle = hue;
+    if (grammar?.orbit === "dashed") g.setLineDash(ORBIT_DASH.map((d) => d / s));
+    this.#ring(g, n.x, n.y, orbit, MARK_STROKE / s);
+    g.setLineDash([]);
+    if (!grammar?.moon) return;
+    const mx = n.x + Math.cos(MOON_ANGLE) * orbit;
+    const my = n.y + Math.sin(MOON_ANGLE) * orbit;
+    this.#disc(g, mx, my, MOON_R / s, 1);
+    for (const mark of grammar.marks) {
+      if (mark === "halo") {
+        g.globalAlpha = 1;
+        this.#ring(g, mx, my, HALO_R / s, MARK_STROKE / s);
+      } else {
+        for (const { deg, alpha } of TRAIL) {
+          const a = MOON_ANGLE - (deg / 360) * TAU;
+          const tx = n.x + Math.cos(a) * orbit;
+          const ty = n.y + Math.sin(a) * orbit;
+          this.#disc(g, tx, ty, TRAIL_R / s, this.#colors.highContrast ? 1 : alpha);
+        }
+      }
+    }
+    g.globalAlpha = 1;
   }
 
   #strokedText(g: CanvasRenderingContext2D, text: string, x: number, y: number): void {
