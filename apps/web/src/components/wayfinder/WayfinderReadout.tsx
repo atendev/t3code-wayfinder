@@ -1,5 +1,6 @@
 import type {
   EnvironmentId,
+  ProjectId,
   ScopedThreadRef,
   WayfinderDocument,
   WayfinderMapSummary,
@@ -20,12 +21,14 @@ import { Button } from "../ui/button";
 import { CollapsibleSectionHeader } from "../ui/collapsible-section-header";
 import { Skeleton } from "../ui/skeleton";
 import { PROBLEM_REASON_COPY, tildeRoot } from "./wayfinderCopy";
+import { WayfinderTicketActions } from "./WayfinderTicketActions";
 
 export const READOUT_FOCUS_ATTRIBUTE = "data-wayfinder-focus";
 
 interface ReadoutContext {
   readonly threadRef: ScopedThreadRef;
   readonly environmentId: EnvironmentId;
+  readonly projectId: ProjectId | null;
   readonly cwd: string;
   readonly root: string;
 }
@@ -223,6 +226,13 @@ export function TicketReadout(props: {
       >
         {ticket.title}
       </h2>
+      <WayfinderTicketActions
+        environmentId={context.environmentId}
+        projectId={context.projectId}
+        cwd={context.cwd}
+        map={map}
+        ticket={ticket}
+      />
       <ProblemsAlert problems={ticket.problems} />
       <TicketReferenceRows
         label="Blocked by"

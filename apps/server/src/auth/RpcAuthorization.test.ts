@@ -2,6 +2,7 @@ import {
   AuthEnvironmentMaintainScope,
   AuthDiagnosticsReadScope,
   AuthFilesystemReadScope,
+  AuthFilesystemWriteScope,
   AuthProvidersManageScope,
   AuthSettingsWriteScope,
   DEFAULT_SERVER_SETTINGS,
@@ -16,6 +17,7 @@ import {
   AuthTerminalOperateScope,
   WS_METHODS,
   WsRpcGroup,
+  clientRpcRequiredScopes,
 } from "@t3tools/contracts";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -68,7 +70,7 @@ describe("RPC authorization scopes", () => {
     }
   });
 
-  it("keeps Wayfinder map reads at filesystem read scope, like project file reads", () => {
+  it("keeps Wayfinder reads at filesystem read scope and claim writes at filesystem write", () => {
     for (const method of [
       WS_METHODS.projectsReadFile,
       WS_METHODS.wayfinderSubscribe,
@@ -77,6 +79,13 @@ describe("RPC authorization scopes", () => {
     ]) {
       expect(requiredScopeForRpcMethod(method)).toBe(AuthFilesystemReadScope);
     }
+    expect(requiredScopeForRpcMethod(WS_METHODS.wayfinderReleaseClaim)).toBe(
+      AuthFilesystemWriteScope,
+    );
+    expect(clientRpcRequiredScopes(WS_METHODS.wayfinderStartTicketThread, undefined)).toEqual([
+      AuthOrchestrationOperateScope,
+      AuthFilesystemWriteScope,
+    ]);
   });
 
   it("rejects unknown RPC method names", () => {

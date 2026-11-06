@@ -67,7 +67,8 @@ function WayfinderMaps(props: {
   const [fitted, setFitted] = useState(true);
   const [starMap, setStarMap] = useState<StarMap | null>(null);
   const readoutRef = useRef<HTMLElement>(null);
-  const inWorktree = (useThreadShell(threadRef)?.worktreePath ?? null) !== null;
+  const threadShell = useThreadShell(threadRef);
+  const inWorktree = (threadShell?.worktreePath ?? null) !== null;
   const snapshot = query.data?.snapshot ?? null;
 
   if (snapshot === null) {
@@ -120,6 +121,7 @@ function WayfinderMaps(props: {
   const readoutContext = {
     threadRef,
     environmentId: props.environmentId,
+    projectId: threadShell?.projectId ?? null,
     cwd: snapshot.cwd,
     root: snapshot.root,
   };

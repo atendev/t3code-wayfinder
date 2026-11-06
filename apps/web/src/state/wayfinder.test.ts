@@ -2,7 +2,7 @@ import type { EnvironmentId, WayfinderMapsSnapshot } from "@t3tools/contracts";
 import { AsyncResult, Atom, AtomRegistry } from "effect/reactivity";
 import { describe, expect, it } from "vite-plus/test";
 
-import { makeDocumentFingerprintAtoms } from "./wayfinder";
+import { makeDocumentFingerprintAtoms, wayfinderClaimantAtom } from "./wayfinder";
 
 const environmentId = "env-1" as EnvironmentId;
 
@@ -83,6 +83,14 @@ describe("document fingerprint atoms", () => {
 
     push(snapshot("t-9", "map-2"));
     expect(signals).toEqual(["map-1", "map-2"]);
+    registry.dispose();
+  });
+});
+
+describe("wayfinderClaimantAtom", () => {
+  it("reads an unclaimed ticket as no claimant", () => {
+    const registry = AtomRegistry.make();
+    expect(registry.get(wayfinderClaimantAtom(JSON.stringify([environmentId, null])))).toBe("null");
     registry.dispose();
   });
 });

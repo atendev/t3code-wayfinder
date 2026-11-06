@@ -57,7 +57,7 @@ import {
 import { PullRequestGlyph } from "./pullRequestIcons";
 import type { PickableEnvironment } from "./pullRequestProjectAssignment.logic";
 import { PullRequestThreadLinks } from "./PullRequestThreadLinks";
-import { useInlineActionConfirm } from "./useInlineActionConfirm";
+import { useInlineActionConfirm } from "../../hooks/useInlineActionConfirm";
 
 /** Everything else the reader can do with the pull request, behind the header's overflow button. */
 export function PullRequestActionsMenu({

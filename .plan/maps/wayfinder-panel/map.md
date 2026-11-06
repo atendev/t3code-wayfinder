@@ -44,7 +44,7 @@ A spec at `./spec.md` that build sessions can take ticket by ticket: a right pan
 
 ## Not yet specified
 
-Nothing. Next step is writing `spec.md` and charting `wayfinder-panel-impl`.
+Nothing. Gaps found while building become tickets here, such as [Start thread when the project has no default model](./tickets/16-start-without-default-model.md).
 
 ## Out of scope
 

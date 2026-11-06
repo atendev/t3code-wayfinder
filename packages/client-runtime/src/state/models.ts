@@ -1,4 +1,5 @@
 import { backgroundWorkHoldsCompletion } from "@t3tools/shared/orchestrationV2PendingBackgroundWork";
+import { runStatusIsActive } from "@t3tools/shared/wayfinderClaim";
 import { threadPullRequestsOf } from "../threadPullRequests.ts";
 import type {
   ThreadLinkedPullRequest,
@@ -112,7 +113,7 @@ export interface ThreadRuntimeSummary {
 export type ThreadStructureRuntime = Omit<ThreadRuntimeSummary, "updatedAt">;
 
 export function threadRuntimeIsActive(runtime: ThreadStructureRuntime | null | undefined): boolean {
-  return runtime !== null && runtime !== undefined && threadRunStatusIsActive(runtime.status);
+  return runtime !== null && runtime !== undefined && runStatusIsActive(runtime.status);
 }
 
 export function threadRuntimeCanArchive(runtime: ThreadRuntimeSummary | null | undefined): boolean {
@@ -121,16 +122,6 @@ export function threadRuntimeCanArchive(runtime: ThreadRuntimeSummary | null | u
     runtime?.status !== "preparing" &&
     runtime?.status !== "starting" &&
     runtime?.status !== "running"
-  );
-}
-
-function threadRunStatusIsActive(status: ThreadRuntimeSummary["status"]): boolean {
-  return (
-    status === "preparing" ||
-    status === "queued" ||
-    status === "starting" ||
-    status === "running" ||
-    status === "waiting"
   );
 }
 

@@ -2,15 +2,35 @@
 import * as NodeCrypto from "node:crypto";
 
 import {
+  type CommandId,
+  ComposerContextId,
+  isProviderNativeSubagentThread,
+  type OrchestrationMessageContext,
+  type OrchestrationV2ThreadShell,
+  type ProjectId,
+  ThreadId,
+  WayfinderClaimLiveError,
   type WayfinderDocument,
   type WayfinderMapSummary,
   type WayfinderMapsSnapshot,
   type WayfinderProblem,
   type WayfinderReadMapInput,
   type WayfinderReadTicketInput,
+  type WayfinderReleaseClaimInput,
+  type WayfinderReleaseClaimResult,
+  type WayfinderStartTicketThreadResult,
   WayfinderMapsReadError,
   WayfinderTicketNotFoundError,
+  WayfinderTicketNotStartableError,
+  type WayfinderTicketSummary,
 } from "@t3tools/contracts";
+import { writeFileStringAtomically } from "@t3tools/shared/atomicWrite";
+import * as KeyedLock from "@t3tools/shared/KeyedLock";
+import { backgroundWorkHoldsCompletion } from "@t3tools/shared/orchestrationV2PendingBackgroundWork";
+import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
+import { resolveNewThreadModelSelection } from "@t3tools/shared/usageLimits";
+import { type ClaimantThread, claimSessionState } from "@t3tools/shared/wayfinderClaim";
+import * as Clock from "effect/Clock";
 import * as Context from "effect/Context";
 import * as Deferred from "effect/Deferred";
 import * as Duration from "effect/Duration";
@@ -20,14 +40,23 @@ import * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as LayerMap from "effect/LayerMap";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as PubSub from "effect/PubSub";
 import * as Ref from "effect/Ref";
 import * as Semaphore from "effect/Semaphore";
 import * as Stream from "effect/Stream";
 
+import { resolveRuntimeMode } from "../mcp/delegatedTaskModes.ts";
+import * as Orchestrator from "../orchestration-v2/Orchestrator.ts";
+import * as ThreadLaunch from "../orchestration-v2/ThreadLaunchService.ts";
+import * as ThreadManagement from "../orchestration-v2/ThreadManagementService.ts";
+import * as ProjectService from "../project/ProjectService.ts";
+import * as ProviderRegistry from "../provider/ProviderRegistry.ts";
+import * as ServerSettings from "../serverSettings.ts";
 import * as VcsDriverRegistry from "../vcs/VcsDriverRegistry.ts";
 import * as KnownWorkspaces from "../workspace/KnownWorkspaces.ts";
+import { formatClaimedAt, stampClaim, stripClaim } from "./claim.ts";
 import {
   holdMidWrite,
   mapsRelativePath,
@@ -60,8 +89,166 @@ export class WayfinderMaps extends Context.Service<
     readonly readMap: (
       input: WayfinderReadMapInput,
     ) => Effect.Effect<WayfinderDocument, WayfinderMapsReadError | WayfinderTicketNotFoundError>;
+    /** Claims a frontier ticket and launches a thread on it; a retried `commandId` replays. */
+    readonly startTicketThread: (
+      input: WayfinderStartTicketThreadServiceInput,
+    ) => Effect.Effect<
+      WayfinderStartTicketThreadResult,
+      | WayfinderTicketNotStartableError
+      | WayfinderMapsReadError
+      | ThreadLaunch.ThreadLaunchError
+      | ThreadManagement.ThreadManagementProviderInstanceDisabledError
+    >;
+    /** Refuses a claim whose thread is working or waiting on the user unless `force` is set. */
+    readonly releaseClaim: (
+      input: WayfinderReleaseClaimInput,
+    ) => Effect.Effect<
+      WayfinderReleaseClaimResult,
+      WayfinderClaimLiveError | WayfinderTicketNotFoundError | WayfinderMapsReadError
+    >;
+    /** Strips the claims a deleted thread held on still-open tickets under `cwd`'s root. */
+    readonly clearClaimsOf: (input: {
+      readonly cwd: string;
+      readonly threadId: ThreadId;
+    }) => Effect.Effect<void, WayfinderMapsReadError>;
   }
 >()("t3/wayfinder/WayfinderMaps") {}
+
+export interface WayfinderStartTicketThreadServiceInput {
+  readonly cwd: string;
+  readonly projectId: ProjectId;
+  readonly mapSlug: string;
+  readonly number: number;
+  readonly commandId: CommandId;
+}
+
+const padTicketNumber = (number: number) => String(number).padStart(2, "0");
+
+const FRONTMATTER_PROBLEMS: ReadonlySet<WayfinderProblem["reason"]> = new Set([
+  "missing-frontmatter",
+  "invalid-frontmatter",
+  "invalid-type",
+]);
+
+/** Why a ticket cannot be started now, or `null` when it is on the frontier and unclaimed. */
+const notStartableReason = (
+  map: WayfinderMapSummary,
+  number: number,
+): Pick<WayfinderTicketNotStartableError, "reason" | "blockers" | "claimedBy"> | null => {
+  const ticket = map.tickets.find((entry) => entry.number === number);
+  if (ticket === undefined) return { reason: "missing" };
+  if (ticket.status === "resolved") return { reason: "resolved" };
+  if (ticket.status === "out_of_scope") return { reason: "out-of-scope" };
+  if (ticket.status === "claimed") return { reason: "claimed", claimedBy: ticket.claimedBy! };
+  if (ticket.problems.some((problem) => FRONTMATTER_PROBLEMS.has(problem.reason))) {
+    return { reason: "problem" };
+  }
+  if (ticket.frontier) return null;
+  const resolved = new Set(
+    map.tickets.filter((entry) => entry.status === "resolved").map((entry) => entry.number),
+  );
+  return {
+    reason: "blocked",
+    blockers: ticket.blockedBy.filter((blocker) => !resolved.has(blocker)),
+  };
+};
+
+const requestNeedsApproval = (shell: OrchestrationV2ThreadShell) => {
+  const kind = shell.pendingRuntimeRequest?.kind;
+  return kind !== undefined && kind !== "user_input" && kind !== "auth_refresh";
+};
+
+// Mirrors client-runtime's `subagentRequest`: an async question outlives the child's run, but the
+// parent stops waiting once that run ends.
+const isChildRunLive = (thread: OrchestrationV2ThreadShell) =>
+  thread.activityRunStatus !== undefined
+    ? thread.activityRunStatus !== null
+    : thread.status === "preparing" ||
+      thread.status === "starting" ||
+      thread.status === "running" ||
+      thread.status === "waiting";
+
+const childAwaitsApproval = (thread: OrchestrationV2ThreadShell) =>
+  requestNeedsApproval(thread) &&
+  (thread.lineage.relationshipToParent === "subagent" || thread.delegatedFrom !== undefined) &&
+  !isProviderNativeSubagentThread(thread) &&
+  isChildRunLive(thread);
+
+/**
+ * Whether a subagent below `threadId`, or a side chat on it, waits on the user, as the client's
+ * shell index rolls those requests up to the parent. Delegated tasks in linked environments are
+ * not known here.
+ */
+const childAwaitsUser = (threadId: string, threads: ReadonlyArray<OrchestrationV2ThreadShell>) => {
+  const byId = new Map(threads.map((thread) => [thread.id, thread] as const));
+  return threads.some((child) => {
+    if (child.lineage.sideChat === true) {
+      const kind = child.pendingRuntimeRequest?.kind;
+      return (
+        child.lineage.parentThreadId === threadId && kind !== undefined && kind !== "auth_refresh"
+      );
+    }
+    if (!childAwaitsApproval(child)) return false;
+    const seen = new Set<string>([child.id]);
+    let parentId = child.lineage.parentThreadId;
+    while (parentId !== null && !seen.has(parentId)) {
+      if (parentId === threadId) return true;
+      seen.add(parentId);
+      const parent = byId.get(parentId);
+      parentId =
+        parent?.lineage.relationshipToParent === "subagent" || parent?.lineage.sideChat === true
+          ? parent.lineage.parentThreadId
+          : null;
+    }
+    return false;
+  });
+};
+
+/** The claimant as `claimSessionState` reads it; `null` for a missing or deleted thread. */
+const claimantFromShell = (
+  shell: OrchestrationV2ThreadShell | null,
+  childWaiting: boolean,
+): ClaimantThread | null => {
+  if (shell === null || shell.deletedAt != null) return null;
+  const parkAtIdle =
+    backgroundWorkHoldsCompletion(shell.pendingBackgroundTasks ?? []) && shell.status !== "failed";
+  const hasRuntime =
+    shell.latestRunId !== null || shell.activeProviderThreadId !== null || parkAtIdle;
+  const request = shell.pendingRuntimeRequest;
+  return {
+    archived: shell.archivedAt !== null,
+    runtimeStatus: !hasRuntime
+      ? null
+      : parkAtIdle
+        ? "idle"
+        : (shell.activityRunStatus ?? shell.status),
+    pendingRequest:
+      request === null || request.kind === "auth_refresh"
+        ? childWaiting
+          ? "subagent"
+          : null
+        : request.kind === "user_input"
+          ? "input"
+          : "approval",
+  };
+};
+
+const startPrompt = (mapSlug: string, number: number, fileName: string) =>
+  `$wayfinder Work ticket ${padTicketNumber(number)} of the ${mapSlug} map: ` +
+  `.plan/maps/${mapSlug}/tickets/${fileName}. Load .plan/maps/${mapSlug}/map.md and that ticket only.`;
+
+const WAYFINDER_SKILL_CONTEXT = {
+  version: 1,
+  records: [
+    {
+      version: 1,
+      contextId: ComposerContextId.make("wayfinder-skill"),
+      label: "wayfinder",
+      kind: "skill",
+      name: "wayfinder",
+    },
+  ],
+} as OrchestrationMessageContext;
 
 const fingerprint = (bytes: Uint8Array) =>
   NodeCrypto.createHash("sha256").update(bytes).digest("base64url").slice(0, 22);
@@ -294,6 +481,11 @@ const make = Effect.gen(function* () {
   const knownWorkspaces = yield* KnownWorkspaces.KnownWorkspaces;
   const vcsRegistry = yield* VcsDriverRegistry.VcsDriverRegistry;
   const watchers = yield* WayfinderRootWatcherMap;
+  const launches = yield* ThreadLaunch.ThreadLaunchService;
+  const orchestrator = yield* Orchestrator.OrchestratorV2;
+  const projects = yield* ProjectService.ProjectService;
+  const serverSettings = yield* ServerSettings.ServerSettingsService;
+  const providerRegistry = yield* ProviderRegistry.ProviderRegistry;
 
   const provideFs = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
     effect.pipe(
@@ -419,7 +611,261 @@ const make = Effect.gen(function* () {
     },
   );
 
-  return WayfinderMaps.of({ getSnapshot, streamSnapshots, readTicket, readMap });
+  // Claim writes for one root run one at a time, so two starts cannot both see it unclaimed.
+  const rootLocks = yield* KeyedLock.make<string>();
+  const withRootLock = rootLocks.withLock;
+
+  const writeFailed = (cwd: string) => (cause: unknown) =>
+    new WayfinderMapsReadError({ cwd, cause });
+
+  /** Re-reads one map from disk; the ticket is `undefined` when its file is gone. */
+  const readMapForWrite = Effect.fn("WayfinderMaps.readMapForWrite")(function* (
+    cwd: string,
+    root: string,
+    mapSlug: string,
+    number: number,
+  ) {
+    yield* assertWorkspace(cwd);
+    const mapDir = yield* mapDirectory(cwd, mapSlug);
+    const ticketsDir = path.join(mapDir, "tickets");
+    const ticketFiles = yield* provideFs(readTicketFiles(ticketsDir));
+    const mapFile = yield* provideFs(readFileOrNull(path.join(mapDir, "map.md")));
+    const map = parseMap({
+      slug: mapSlug,
+      mapFile: { name: "map.md", text: mapFile?.text ?? "", fingerprint: "" },
+      ticketFiles,
+    });
+    const fileName = ticketFileOwners(ticketFiles.map((file) => file.name)).owners.get(number);
+    const file = ticketFiles.find((entry) => entry.name === fileName);
+    const ticket: WayfinderTicketSummary | undefined = map.tickets.find(
+      (entry) => entry.number === number,
+    );
+    return {
+      map,
+      ticket,
+      file:
+        file === undefined || file.text === null
+          ? undefined
+          : { name: file.name, text: file.text, path: path.join(ticketsDir, file.name) },
+      ticketPath: mapsRelativePath(mapSlug, "tickets", fileName ?? ""),
+      root,
+    };
+  });
+
+  const writeTicket = (cwd: string, filePath: string, contents: string) =>
+    provideFs(writeFileStringAtomically({ filePath, contents })).pipe(
+      Effect.mapError(writeFailed(cwd)),
+    );
+
+  const launchSettings = Effect.fn("WayfinderMaps.launchSettings")(function* (input: {
+    readonly cwd: string;
+    readonly projectId: ProjectId;
+    readonly commandId: CommandId;
+  }) {
+    const launchError = (cause: unknown) =>
+      new ThreadLaunch.ThreadLaunchError({
+        operation: "resolve-project",
+        commandId: input.commandId,
+        projectId: input.projectId,
+        cause,
+      });
+    const project = Option.getOrUndefined(
+      yield* projects.getById(input.projectId).pipe(Effect.mapError(launchError)),
+    );
+    if (project === undefined) return yield* launchError(new Error("The project was not found."));
+    const settings = resolveProjectSettings(
+      yield* serverSettings.getSettings.pipe(Effect.mapError(launchError)),
+      input.projectId,
+      project,
+    ).settings;
+    const providers = yield* providerRegistry.getProviders;
+    const modelSelection = resolveNewThreadModelSelection({
+      defaultSelection: settings.defaultModelSelection,
+      fallbackSelection: settings.fallbackModelSelection,
+      providers,
+      settings,
+      projectId: input.projectId,
+      now: yield* Clock.currentTimeMillis,
+    }).selection;
+    if (modelSelection === null) {
+      return yield* launchError(
+        new Error("The project has no default model. Choose one in Settings, then try again."),
+      );
+    }
+    const runtimeMode = yield* resolveRuntimeMode(settings.defaultRuntimeMode, undefined, {
+      modelSelection,
+      supportedRuntimeModes: providers.find(
+        (provider) => provider.instanceId === modelSelection.instanceId,
+      )?.supportedRuntimeModes,
+    }).pipe(Effect.orElseSucceed(() => settings.defaultRuntimeMode));
+    const workspaceStrategy: ThreadLaunch.ThreadLaunchWorkspaceStrategy =
+      path.resolve(input.cwd) === path.resolve(project.workspaceRoot)
+        ? { type: "root" }
+        : { type: "existing_worktree", worktreePath: input.cwd };
+    return { modelSelection, runtimeMode, workspaceStrategy };
+  });
+
+  const threadExists = (threadId: ThreadId) =>
+    orchestrator.getThreadShell(threadId).pipe(
+      Effect.map((shell) => shell !== null && shell.deletedAt === null),
+      // An unreadable projection keeps the claim: a thread that exists must not lose it.
+      Effect.orElseSucceed(() => true),
+    );
+
+  const startTicketThread: WayfinderMaps["Service"]["startTicketThread"] = Effect.fn(
+    "WayfinderMaps.startTicketThread",
+  )(function* (input) {
+    const root = yield* resolveRoot(input.cwd);
+    const threadId = ThreadId.make(input.commandId);
+    const notStartable = (
+      detail: Pick<WayfinderTicketNotStartableError, "reason" | "blockers" | "claimedBy">,
+    ) =>
+      new WayfinderTicketNotStartableError({
+        mapSlug: input.mapSlug,
+        number: input.number,
+        ...detail,
+      });
+    return yield* withRootLock(
+      root,
+      Effect.gen(function* () {
+        const located = yield* readMapForWrite(input.cwd, root, input.mapSlug, input.number).pipe(
+          Effect.catchTags({
+            WayfinderTicketNotFoundError: () => Effect.fail(notStartable({ reason: "missing" })),
+          }),
+        );
+        const file = located.file;
+        if (file === undefined) return yield* notStartable({ reason: "missing" });
+        // A retry whose first attempt claimed the ticket replays the launch.
+        const replaying = located.ticket?.claimedBy === threadId;
+        if (!replaying) {
+          const refusal = notStartableReason(located.map, input.number);
+          if (refusal !== null) return yield* notStartable(refusal);
+        }
+        const settings = yield* launchSettings(input);
+        if (!replaying) {
+          const claimedAt = formatClaimedAt(yield* Clock.currentTimeMillis);
+          yield* writeTicket(input.cwd, file.path, stampClaim(file.text, threadId, claimedAt));
+        }
+        yield* launches
+          .launch({
+            commandId: input.commandId,
+            threadId,
+            projectId: input.projectId,
+            title: `${padTicketNumber(input.number)} ${located.ticket?.title ?? file.name}`,
+            generateTitle: false,
+            modelSelection: settings.modelSelection,
+            runtimeMode: settings.runtimeMode,
+            interactionMode: "default",
+            workspaceStrategy: settings.workspaceStrategy,
+            initialMessage: {
+              text: startPrompt(input.mapSlug, input.number, file.name),
+              attachments: [],
+              context: WAYFINDER_SKILL_CONTEXT,
+            },
+            createdBy: "user",
+            creationSource: "web",
+          })
+          .pipe(
+            // A failed or interrupted launch that left no thread gives the ticket back.
+            Effect.onExit((exit) =>
+              Exit.isSuccess(exit)
+                ? Effect.void
+                : Effect.gen(function* () {
+                    if (yield* threadExists(threadId)) return;
+                    const current = yield* provideFs(readFileOrNull(file.path));
+                    if (current === null) return;
+                    yield* writeTicket(input.cwd, file.path, stripClaim(current.text));
+                  }).pipe(Effect.ignore({ log: true })),
+            ),
+          );
+        return { threadId, ticketPath: located.ticketPath };
+      }),
+    );
+  });
+
+  const releaseClaim: WayfinderMaps["Service"]["releaseClaim"] = Effect.fn(
+    "WayfinderMaps.releaseClaim",
+  )(function* (input) {
+    const root = yield* resolveRoot(input.cwd);
+    return yield* withRootLock(
+      root,
+      Effect.gen(function* () {
+        const located = yield* readMapForWrite(input.cwd, root, input.mapSlug, input.number);
+        if (located.file === undefined) {
+          return yield* new WayfinderTicketNotFoundError({
+            mapSlug: input.mapSlug,
+            number: input.number,
+          });
+        }
+        const claimedBy = located.ticket?.claimedBy ?? null;
+        if (claimedBy === null) return { released: false };
+        if (input.force !== true) {
+          const shell = yield* orchestrator
+            .getThreadShell(ThreadId.make(claimedBy))
+            .pipe(Effect.mapError(writeFailed(input.cwd)));
+          // The shell snapshot keeps side chats, which the thread listings leave out.
+          const childWaiting =
+            shell === null
+              ? false
+              : childAwaitsUser(
+                  claimedBy,
+                  (yield* orchestrator
+                    .getShellSnapshot({ location: "active", projectId: shell.projectId })
+                    .pipe(Effect.mapError(writeFailed(input.cwd)))).threads,
+                );
+          const session = claimSessionState(
+            claimantFromShell(shell, childWaiting),
+            located.ticket?.claimedAt ?? null,
+            yield* Clock.currentTimeMillis,
+          );
+          if (session.state === "working" || session.state === "needs-you") {
+            return yield* new WayfinderClaimLiveError({
+              number: input.number,
+              state: session.state,
+              threadId: claimedBy,
+            });
+          }
+        }
+        yield* writeTicket(input.cwd, located.file.path, stripClaim(located.file.text));
+        return { released: true };
+      }),
+    );
+  });
+
+  const clearClaimsOf: WayfinderMaps["Service"]["clearClaimsOf"] = Effect.fn(
+    "WayfinderMaps.clearClaimsOf",
+  )(function* (input) {
+    yield* assertWorkspace(input.cwd);
+    const root = yield* resolveRoot(input.cwd);
+    yield* withRootLock(
+      root,
+      Effect.gen(function* () {
+        const snapshot = yield* provideFs(readRootSnapshot(root));
+        for (const map of snapshot.maps) {
+          for (const ticket of map.tickets) {
+            // A resolved or ruled-out ticket keeps its inert claim.
+            if (ticket.status !== "claimed" || ticket.claimedBy !== input.threadId) continue;
+            const located = yield* readMapForWrite(input.cwd, root, map.slug, ticket.number).pipe(
+              Effect.catchTags({ WayfinderTicketNotFoundError: () => Effect.succeed(null) }),
+            );
+            if (located?.file === undefined || located.ticket?.status !== "claimed") continue;
+            if (located.ticket.claimedBy !== input.threadId) continue;
+            yield* writeTicket(input.cwd, located.file.path, stripClaim(located.file.text));
+          }
+        }
+      }),
+    );
+  });
+
+  return WayfinderMaps.of({
+    getSnapshot,
+    streamSnapshots,
+    readTicket,
+    readMap,
+    startTicketThread,
+    releaseClaim,
+    clearClaimsOf,
+  });
 });
 
 export const layer = Layer.effect(WayfinderMaps, make).pipe(
