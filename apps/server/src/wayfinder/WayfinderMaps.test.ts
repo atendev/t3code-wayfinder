@@ -5,9 +5,12 @@ import {
   type OrchestrationV2DomainEvent,
   type OrchestrationV2ThreadShell,
   type OrchestrationV2ThreadShellSnapshot,
+  type ModelSelection,
   type Project,
   ProjectId,
+  ProviderDriverKind,
   ProviderInstanceId,
+  type ServerProvider,
   ThreadId,
 } from "@t3tools/contracts";
 import { describe, expect, it } from "@effect/vitest";
@@ -160,6 +163,8 @@ interface LaunchStubs {
   readonly shells?: ReadonlyMap<string, OrchestrationV2ThreadShell>;
   readonly listed?: ReadonlyArray<OrchestrationV2ThreadShell>;
   readonly events?: Stream.Stream<OrchestrationV2DomainEvent>;
+  readonly defaultModelSelection?: ModelSelection | null;
+  readonly providers?: ReadonlyArray<ServerProvider>;
 }
 
 const layerServiceStubs = (stubs: LaunchStubs = {}) =>
@@ -187,13 +192,15 @@ const layerServiceStubs = (stubs: LaunchStubs = {}) =>
     Layer.mock(ServerSettings.ServerSettingsService)({
       getSettings: Effect.succeed({
         ...DEFAULT_SERVER_SETTINGS,
-        defaultModelSelection: {
-          instanceId: ProviderInstanceId.make("replay"),
-          model: "replay",
-        },
+        defaultModelSelection:
+          stubs.defaultModelSelection === undefined
+            ? { instanceId: ProviderInstanceId.make("replay"), model: "replay" }
+            : stubs.defaultModelSelection,
       }),
     }),
-    Layer.mock(ProviderRegistry.ProviderRegistry)({ getProviders: Effect.succeed([]) }),
+    Layer.mock(ProviderRegistry.ProviderRegistry)({
+      getProviders: Effect.succeed(stubs.providers ?? []),
+    }),
   );
 const layerWorkspaceStubs = layerServiceStubs();
 
@@ -325,6 +332,16 @@ const writeTickets = Effect.fn(function* (root: string, tickets: Record<string, 
   }
 });
 
+const readyProvider = (driver: string, instanceId: string, model: string) =>
+  ({
+    instanceId: ProviderInstanceId.make(instanceId),
+    driver: ProviderDriverKind.make(driver),
+    enabled: true,
+    installed: true,
+    status: "ready",
+    models: [{ slug: model, name: model, isCustom: false, capabilities: {} }],
+  }) as unknown as ServerProvider;
+
 const readTicketFile = (root: string, name: string) =>
   FileSystem.FileSystem.pipe(
     Effect.flatMap((fs) => fs.readFileString(`${root}/.plan/maps/panel/tickets/${name}`)),
@@ -422,6 +439,52 @@ describe("WayfinderMaps.startTicketThread", () => {
           expect(error._tag).toBe("ThreadLaunchError");
           expect(yield* readTicketFile(root, "01-one.md")).toBe(original);
         }),
+    ),
+  );
+
+  it.effect("launches on the first ready provider's default model when the default is null", () =>
+    Effect.gen(function* () {
+      const launched = yield* Deferred.make<ModelSelection>();
+      yield* withMaps(
+        {
+          defaultModelSelection: null,
+          providers: [readyProvider("claudeAgent", "claudeAgent", "sonnet")],
+          launch: (input) =>
+            Deferred.succeed(launched, input.modelSelection!).pipe(
+              Effect.as({
+                threadId: input.threadId!,
+                resumed: false,
+              } as ThreadLaunch.ThreadLaunchResult),
+            ),
+        },
+        (root) =>
+          Effect.gen(function* () {
+            yield* writeTickets(root, { "01-one.md": TICKET("type: task\n") });
+            const maps = yield* WayfinderMaps.WayfinderMaps;
+            yield* maps.startTicketThread(startInput(root, 1, "command-a"));
+          }),
+      );
+      expect(yield* Deferred.await(launched)).toEqual({
+        instanceId: ProviderInstanceId.make("claudeAgent"),
+        model: "sonnet",
+      });
+    }),
+  );
+
+  it.effect("fails with the no-provider message and leaves no claim when none is selectable", () =>
+    withMaps({ defaultModelSelection: null, providers: [] }, (root) =>
+      Effect.gen(function* () {
+        const original = TICKET("type: task\n");
+        yield* writeTickets(root, { "01-one.md": original });
+        const maps = yield* WayfinderMaps.WayfinderMaps;
+        const error = yield* maps
+          .startTicketThread(startInput(root, 1, "command-a"))
+          .pipe(Effect.flip);
+        expect(String(error.cause)).toContain(
+          "No provider is ready. Set one up in Settings, then try again.",
+        );
+        expect(yield* readTicketFile(root, "01-one.md")).toBe(original);
+      }),
     ),
   );
 

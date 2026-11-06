@@ -32,6 +32,7 @@ import { writeFileStringAtomically } from "@t3tools/shared/atomicWrite";
 import * as KeyedLock from "@t3tools/shared/KeyedLock";
 import { backgroundWorkHoldsCompletion } from "@t3tools/shared/orchestrationV2PendingBackgroundWork";
 import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
+import { resolveProjectDefaultProviderModelSelection } from "@t3tools/shared/providerModelDefault";
 import { resolveNewThreadModelSelection } from "@t3tools/shared/usageLimits";
 import { type ClaimantThread, claimSessionState } from "@t3tools/shared/wayfinderClaim";
 import * as Clock from "effect/Clock";
@@ -703,7 +704,9 @@ const make = Effect.gen(function* () {
     ).settings;
     const providers = yield* providerRegistry.getProviders;
     const modelSelection = resolveNewThreadModelSelection({
-      defaultSelection: settings.defaultModelSelection,
+      defaultSelection:
+        settings.defaultModelSelection ??
+        resolveProjectDefaultProviderModelSelection(providers, settings, input.projectId),
       fallbackSelection: settings.fallbackModelSelection,
       providers,
       settings,
@@ -712,7 +715,7 @@ const make = Effect.gen(function* () {
     }).selection;
     if (modelSelection === null) {
       return yield* launchError(
-        new Error("The project has no default model. Choose one in Settings, then try again."),
+        new Error("No provider is ready. Set one up in Settings, then try again."),
       );
     }
     const runtimeMode = yield* resolveRuntimeMode(settings.defaultRuntimeMode, undefined, {

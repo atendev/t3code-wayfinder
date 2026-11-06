@@ -1,7 +1,5 @@
 import { pipe } from "effect/Function";
 import {
-  DEFAULT_MODEL_BY_PROVIDER,
-  defaultInstanceIdForDriver,
   resolveProjectProviderInstanceEnabled,
   type ModelSelection,
   type ProjectId,
@@ -17,8 +15,23 @@ import {
   resolveProviderInstanceDisplayName,
   shouldShowInstanceBadge,
 } from "@t3tools/client-runtime/state/provider-instance-display";
+import {
+  deriveProviderSelectionEntry,
+  getDefaultProviderInstanceModel,
+  isProviderInstancePickerReady,
+  resolveProjectDefaultProviderModelSelection,
+  resolveSelectableProviderInstanceEntry,
+  sortProviderInstanceEntries,
+} from "@t3tools/shared/providerModelDefault";
 
-export { normalizeProviderAccentColor, shouldShowInstanceBadge };
+export {
+  getDefaultProviderInstanceModel,
+  isProviderInstancePickerReady,
+  normalizeProviderAccentColor,
+  resolveProjectDefaultProviderModelSelection,
+  resolveSelectableProviderInstanceEntry,
+  shouldShowInstanceBadge,
+};
 
 /** Placeholder for untargetable drafts. Never persist or dispatch it; disable send until replaced. */
 export const NO_PROVIDER_MODEL_SELECTION: ModelSelection = {
@@ -43,11 +56,6 @@ export interface ProviderInstanceEntry {
   readonly models: ReadonlyArray<ServerProviderModel>;
 }
 
-/** Disabled instances may retain ready status until reconciliation. */
-export function isProviderInstancePickerReady(entry: ProviderInstanceEntry): boolean {
-  return entry.enabled && entry.isAvailable && entry.status === "ready";
-}
-
 export function isProviderInstancePickerVisible(entry: ProviderInstanceEntry): boolean {
   return entry.enabled;
 }
@@ -56,26 +64,17 @@ export function deriveProviderInstanceEntries(
   providers: ReadonlyArray<ServerProvider>,
 ): ReadonlyArray<ProviderInstanceEntry> {
   return providers.map((snapshot) => {
-    const instanceId = snapshot.instanceId;
     const driverKind = snapshot.driver;
-    const defaultId = defaultInstanceIdForDriver(driverKind);
-    const isDefault = instanceId === defaultId;
     return {
-      instanceId,
-      driverKind,
+      ...deriveProviderSelectionEntry(snapshot),
       displayName: resolveProviderInstanceDisplayName(snapshot),
       accentColor: normalizeProviderAccentColor(snapshot.accentColor),
       ...(driverKind === "acpRegistry" && snapshot.iconUrl
         ? { acpRegistryIconUrl: snapshot.iconUrl }
         : {}),
       continuationGroupKey: snapshot.continuation?.groupKey,
-      enabled: snapshot.enabled,
       installed: snapshot.installed,
-      status: snapshot.status,
-      isDefault,
-      isAvailable: snapshot.availability !== "unavailable",
       snapshot,
-      models: snapshot.models,
     } satisfies ProviderInstanceEntry;
   });
 }
@@ -166,67 +165,6 @@ export function providerInstanceEntriesFor(
   );
 }
 
-function sortProviderInstanceEntries(
-  entries: ReadonlyArray<ProviderInstanceEntry>,
-): ReadonlyArray<ProviderInstanceEntry> {
-  const byKind = new Map<ProviderDriverKind, ProviderInstanceEntry[]>();
-  for (const entry of entries) {
-    const bucket = byKind.get(entry.driverKind);
-    if (bucket) {
-      bucket.push(entry);
-    } else {
-      byKind.set(entry.driverKind, [entry]);
-    }
-  }
-  const sorted: ProviderInstanceEntry[] = [];
-  for (const bucket of byKind.values()) {
-    const defaults = bucket.filter((entry) => entry.isDefault);
-    const customs = bucket.filter((entry) => !entry.isDefault);
-    sorted.push(...defaults, ...customs);
-  }
-  return sorted;
-}
-
-function getProviderInstanceEntry(
-  providers: ReadonlyArray<ServerProvider>,
-  instanceId: ProviderInstanceId,
-): ProviderInstanceEntry | undefined {
-  return deriveProviderInstanceEntries(providers).find((entry) => entry.instanceId === instanceId);
-}
-
-export function getDefaultProviderInstanceModel(
-  providers: ReadonlyArray<ServerProvider>,
-  instanceId: ProviderInstanceId,
-): string | undefined {
-  const entry = getProviderInstanceEntry(providers, instanceId);
-  if (!entry) return undefined;
-  return (
-    entry.models.find((model) => model.isDefault && !model.isCustom)?.slug ??
-    entry.models.find((model) => !model.isCustom)?.slug ??
-    entry.models[0]?.slug ??
-    DEFAULT_MODEL_BY_PROVIDER[entry.driverKind]
-  );
-}
-
-const isSelectableProviderInstanceEntry = (entry: ProviderInstanceEntry): boolean =>
-  entry.enabled && entry.isAvailable;
-
-export function resolveSelectableProviderInstanceEntry(
-  entries: ReadonlyArray<ProviderInstanceEntry>,
-  instanceId: ProviderInstanceId | undefined,
-): ProviderInstanceEntry | undefined {
-  if (instanceId !== undefined) {
-    const requested = entries.find((entry) => entry.instanceId === instanceId);
-    if (requested && isSelectableProviderInstanceEntry(requested)) {
-      return requested;
-    }
-  }
-  return (
-    entries.find(isProviderInstancePickerReady) ??
-    entries.find((entry) => isSelectableProviderInstanceEntry(entry) && entry.status !== "error")
-  );
-}
-
 export function resolveSelectableProviderInstance(
   providers: ReadonlyArray<ServerProvider>,
   instanceId: ProviderInstanceId | undefined,
@@ -244,20 +182,4 @@ export function resolveDefaultProviderModelSelection(
   if (selection?.instanceId === instanceId) return selection;
   const model = getDefaultProviderInstanceModel(providers, instanceId);
   return model ? { instanceId, model } : null;
-}
-
-export function resolveProjectDefaultProviderModelSelection(
-  providers: ReadonlyArray<ServerProvider>,
-  settings: ServerSettings,
-  projectId: ProjectId | null,
-): ModelSelection | null {
-  const entries = providerInstanceEntriesFor(providers, settings, projectId);
-  // Matches resolveComposerProviderSelection: the first driver group wins before any other.
-  const entry =
-    resolveSelectableProviderInstanceEntry(
-      entries.filter((candidate) => candidate.driverKind === entries[0]?.driverKind),
-      undefined,
-    ) ?? resolveSelectableProviderInstanceEntry(entries, undefined);
-  const model = entry ? getDefaultProviderInstanceModel(providers, entry.instanceId) : undefined;
-  return entry && model ? { instanceId: entry.instanceId, model } : null;
 }
