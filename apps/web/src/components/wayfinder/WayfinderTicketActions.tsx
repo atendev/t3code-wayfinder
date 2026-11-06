@@ -129,7 +129,7 @@ export function WayfinderTicketActions(props: {
   const canRelease = useAtomValue(wayfinderReleaseClaim.permissionAtom(environmentId));
   const shellsLoaded = useEnvironmentShellHasSnapshot(environmentId);
   const claimantKey = useAtomValue(
-    wayfinderClaimantAtom(JSON.stringify([environmentId, ticket.claimedBy ?? ""])),
+    wayfinderClaimantAtom(JSON.stringify([environmentId, ticket.claimedBy])),
   );
   const [pending, setPending] = useState<"start" | "release" | null>(null);
   // State updates land after the frame, so a second click in the same frame needs this guard.
