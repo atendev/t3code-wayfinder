@@ -2,7 +2,7 @@
 
 ## Destination
 
-The Wayfinder tab ships in web and desktop as `../wayfinder-panel/spec.md` describes, and agents reach start and release through MCP. Six stacked PRs, one per ticket, are merged to `main`, each with green CI, its tests, and its captures. Nothing in the spec is left unbuilt or changed without a new ticket on the `wayfinder-panel` map.
+The Wayfinder tab ships in web and desktop as `../wayfinder-panel/spec.md` describes, and agents reach start and release through MCP. One PR per ticket is merged to `main`: six stacked PRs for tickets 01 to 06, then one PR from `main` for each later ticket, each with green CI, its tests, and its captures. Nothing in the spec is left unbuilt or changed without a new ticket on the `wayfinder-panel` map.
 
 ## Notes
 
@@ -19,7 +19,7 @@ The Wayfinder tab ships in web and desktop as `../wayfinder-panel/spec.md` descr
 - [Map snapshot service and subscription](./tickets/01-map-snapshot-service.md) — contracts, parser, per-root watcher and three read-scoped RPCs. The first read waits for the watch to arm. Accepted on local checks because the fork has no Blacksmith runners.
 - [Star-map tab](./tickets/02-star-map-tab.md) — chartr port, Waypoints tab with its entry points, nine body states, problems row and picker with per-thread memory. Merged in PR #3; captures and the paint table still owed.
 - [Map and ticket readout](./tickets/03-map-and-ticket-readout.md) — map and ticket readouts beside or under the canvas by a 760 px container query, fingerprint-triggered body fetches, list rows that select and move focus.
-- [Start a ticket thread and release its claim](./tickets/04-start-and-release.md) — stamp and launch under a per-root lock, strip on a launch that leaves no thread, unforced release refused for a live claimant, a reactor that clears deleted threads' claims, and the readout's action row. Captures and video still owed; a missing default model is open on the `wayfinder-panel` map.
+- [Start a ticket thread and release its claim](./tickets/04-start-and-release.md) — stamp and launch under a per-root lock, strip on a launch that leaves no thread, unforced release refused for a live claimant, a reactor that clears deleted threads' claims, and the readout's action row. Captures and video still owed; a missing default model is resolved on the `wayfinder-panel` map and built by ticket 07.
 - [Session status on stars](./tickets/05-session-status-on-stars.md) — one orbit ring per claimed star, moon with trail for Working, moon with halo for Needs you, dashed muted ring for Unattended, all in screen px; states come from a JSON-keyed shell atom, the summary gains per-state clauses, and a state change paints once. Captures and flat-trace rows still owed.
 - [Agent start and release through MCP](./tickets/06-agent-start-and-release-mcp.md) — `t3_wayfinder_start` and `t3_wayfinder_release` in the caller's checkout, an optional `caller` on `startTicketThread` that launches as the agent, refusals in the spec's MCP copy, and six eval cases. The evals are built but not yet scored, because no API key was available.
 

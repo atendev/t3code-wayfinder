@@ -41,10 +41,11 @@ A spec at `./spec.md` that build sessions can take ticket by ticket: a right pan
 - [Entry points and empty state](./tickets/09-entry-points-and-empty-state.md) — Wayfinder tab with the `Waypoints` icon, in the "+" menu and surface launcher as W whenever the thread has a project, plus a "Show Wayfinder maps" palette action; no keybinding, no settings toggle; close and reopen follow the other surfaces; nine body states with exact copy and a non-blocking problems row; the clicking client navigates to the new thread and only that thread opens the tab.
 - [Session status on stars](./tickets/14-session-status-on-stars.md) — three states from one `claimSessionState` in `packages/shared`, used by the client and the server's release refusal: Working, Needs you, and Unattended (claimant missing or archived, or idle with a claim older than 72 h); every claimed star draws one orbit ring, Working adds a trailed moon, Needs you a haloed moon, Unattended a dashed muted ring; two hues; a change repaints once without a flare; no snapshot change.
 - [Spec handoff](./tickets/15-spec-handoff.md) — implementation map `wayfinder-panel-impl` with six build tasks, each a stacked PR merged in order: snapshot service, star-map tab with the chartr port, readout, start and release with user docs, session marks, MCP tools and evals; a 19-section `spec.md` outline mapped to its source and build tickets; build sessions stop at any gap in the spec rather than deciding.
+- [Start thread when the project has no default model](./tickets/16-start-without-default-model.md) — a `null` default falls back on the server to the composer's first ready provider through one `@t3tools/shared/providerModelDefault` function; no selectable provider fails through the untyped toast with new copy; MCP start keeps the caller's model; built by impl ticket 07.
 
 ## Not yet specified
 
-Nothing. Gaps found while building become tickets here, such as [Start thread when the project has no default model](./tickets/16-start-without-default-model.md).
+Nothing. Gaps found while building become tickets here.
 
 ## Out of scope
 
