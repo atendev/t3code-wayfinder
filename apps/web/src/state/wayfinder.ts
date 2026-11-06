@@ -143,7 +143,8 @@ function claimantFromThreadShell(shell: EnvironmentThreadShell | null): Claimant
  * such as streaming tokens, never re-render the readout.
  */
 export const wayfinderClaimantAtom = Atom.family((key: string) => {
-  const [environmentId, threadId] = JSON.parse(key) as [EnvironmentId, string];
+  const [environmentId, threadId] = JSON.parse(key) as [EnvironmentId, string | null];
+  if (threadId === null) return Atom.make("null");
   const shellAtom = environmentThreadShells.threadShellAtom(
     scopeThreadRef(environmentId, ThreadId.make(threadId)),
   );
